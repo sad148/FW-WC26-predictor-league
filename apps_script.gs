@@ -48,6 +48,7 @@ function doPost(e) {
       addFixture:     () => addFixture(data),
       getFixtures:    () => getFixtures(),
       getLeaderboard: () => getLeaderboard(),
+      getMyBets:      () => getMyBets(data),
       getConfig:      () => getConfig(),
       resetData:      () => resetData(),
       ping:           () => ({ ok: true, message: 'pong' })
@@ -230,6 +231,30 @@ function getLeaderboard() {
     if (outcome === 'pending') { p.pending++;               }
   }
   return { ok: true, leaderboard: Object.values(players).sort((a, b) => b.pts - a.pts) };
+}
+
+/**
+ * getMyBets
+ * Returns all Predictions rows for a single player_id.
+ * The HTML calls this to render the My Bets screen with live data.
+ */
+function getMyBets(d) {
+  const rows = getSheet('Predictions').getDataRange().getValues();
+  if (rows.length < 2) return { ok: true, bets: [] };
+  const playerId = String(d.playerId || '');
+  const bets = [];
+  for (let i = 1; i < rows.length; i++) {
+    const [ts, pid, pname, mid, q1, q2, q3, q4, wager, outcome] = rows[i];
+    if (String(pid) !== playerId) continue;
+    bets.push({
+      timestamp: ts,
+      matchId:   mid,
+      q1, q2, q3, q4,
+      wager:     parseInt(wager) || 0,
+      outcome:   outcome || 'pending'
+    });
+  }
+  return { ok: true, bets };
 }
 
 /**
