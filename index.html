@@ -1,0 +1,1128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FIFA World Cup 2026 · Fantasy Predictor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@400;600;700&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* ── OFFICIAL WC2026 PALETTE ─────────────────────────────────
+   Canada  = #E61D25  (red)
+   Mexico  = #006847  (green)
+   USA     = #2A398D  (blue)
+   Gold    = #C9A84C
+   Navy    = #0B1426
+──────────────────────────────────────────────────────────── */
+:root{
+  --navy:#0B1426; --navy2:#101e38; --navy3:#182442;
+  --can:#E61D25;  --can2:#ff3b41;
+  --mex:#006847;  --mex2:#00a86b;
+  --usa:#2A398D;  --usa2:#4a5fbd;
+  --gold:#C9A84C; --gold2:#e8c76a; --gold3:#fff0c0;
+  --white:#F0EDE6; --off:#C8C4BC;
+  --border:rgba(201,168,76,0.18);
+  --card:rgba(255,255,255,0.035);
+  --card2:rgba(255,255,255,0.065);
+  --radius:10px;
+  --font-display:'Bebas Neue',sans-serif;
+  --font-cond:'Barlow Condensed',sans-serif;
+  --font-body:'Barlow',sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:var(--font-body);background:var(--navy);color:var(--white);min-height:100vh;overflow-x:hidden;}
+
+/* ── PITCH STRIPE BG ── */
+body::before{
+  content:'';position:fixed;inset:0;
+  background:repeating-linear-gradient(180deg,transparent,transparent 60px,rgba(255,255,255,0.013) 60px,rgba(255,255,255,0.013) 120px);
+  pointer-events:none;z-index:0;
+}
+
+/* ── 3-COUNTRY GRADIENT ACCENT LINE ── */
+.accent-bar{height:4px;background:linear-gradient(90deg,var(--can) 0%,var(--can) 33%,var(--mex) 33%,var(--mex) 66%,var(--usa) 66%,var(--usa) 100%);width:100%;}
+
+/* ── HEADER ── */
+.hdr{position:sticky;top:0;z-index:200;background:rgba(11,20,38,0.97);backdrop-filter:blur(12px);}
+.hdr-bar{max-width:1040px;margin:0 auto;padding:0 1rem;display:flex;align-items:center;gap:1rem;height:58px;}
+.logo-wrap{display:flex;align-items:center;gap:10px;text-decoration:none;flex-shrink:0;}
+.logo-trophy{font-size:28px;line-height:1;}
+.logo-text{font-family:var(--font-display);font-size:22px;letter-spacing:1px;color:var(--gold);}
+.logo-sub{font-family:var(--font-cond);font-size:11px;color:var(--off);letter-spacing:2px;text-transform:uppercase;margin-top:-4px;}
+.hdr-nav{display:flex;gap:2px;margin-left:auto;}
+.nav-btn{background:none;border:none;cursor:pointer;font-family:var(--font-cond);font-size:15px;font-weight:600;color:var(--off);padding:7px 14px;border-radius:6px;letter-spacing:.5px;transition:all .2s;}
+.nav-btn:hover{color:var(--white);background:var(--card);}
+.nav-btn.on{color:var(--gold);background:rgba(201,168,76,0.1);}
+.wallet-chip{display:flex;align-items:center;gap:7px;background:rgba(201,168,76,0.1);border:1px solid rgba(201,168,76,0.3);padding:5px 13px;border-radius:20px;font-family:var(--font-cond);font-size:14px;color:var(--gold2);white-space:nowrap;flex-shrink:0;}
+.wallet-chip b{font-size:16px;}
+.admin-chip{display:flex;align-items:center;gap:6px;background:rgba(230,29,37,0.1);border:1px solid rgba(230,29,37,0.3);padding:5px 12px;border-radius:20px;font-family:var(--font-cond);font-size:13px;color:var(--can2);cursor:pointer;transition:all .2s;flex-shrink:0;}
+.admin-chip:hover{background:rgba(230,29,37,0.2);}
+
+/* ── MAIN WRAPPER ── */
+.main{position:relative;z-index:1;max-width:1040px;margin:0 auto;padding:0 1rem 4rem;}
+.sec{display:none;}
+.sec.on{display:block;}
+
+/* ── HERO ── */
+.hero{padding:3rem 0 2.5rem;position:relative;overflow:hidden;}
+.hero-bg{position:absolute;right:-60px;top:50%;transform:translateY(-50%);font-size:320px;opacity:.04;font-family:var(--font-display);color:var(--gold);pointer-events:none;line-height:1;user-select:none;}
+.hero-badge{display:inline-flex;align-items:center;gap:8px;background:rgba(201,168,76,0.1);border:1px solid rgba(201,168,76,0.25);padding:5px 14px;border-radius:20px;font-family:var(--font-cond);font-size:12px;letter-spacing:2px;text-transform:uppercase;color:var(--gold);margin-bottom:1.25rem;}
+.hero-title{font-family:var(--font-display);font-size:clamp(56px,11vw,104px);line-height:.92;margin-bottom:.75rem;text-shadow:0 0 80px rgba(201,168,76,0.2);}
+.hero-title .t-gold{color:var(--gold);}
+.hero-title .t-can{color:var(--can);}
+.hero-title .t-mex{color:var(--mex2);}
+.hero-title .t-usa{color:var(--usa2);}
+.hero-sub{font-size:16px;color:var(--off);max-width:500px;line-height:1.65;margin-bottom:2rem;}
+.hero-flags{display:flex;align-items:center;gap:10px;margin-bottom:2rem;}
+.flag-pill{display:flex;align-items:center;gap:6px;padding:5px 12px;border-radius:6px;font-family:var(--font-cond);font-size:13px;font-weight:600;letter-spacing:.5px;}
+.fp-can{background:rgba(230,29,37,0.12);border:1px solid rgba(230,29,37,0.3);color:var(--can2);}
+.fp-mex{background:rgba(0,104,71,0.15);border:1px solid rgba(0,168,107,0.3);color:var(--mex2);}
+.fp-usa{background:rgba(42,57,141,0.2);border:1px solid rgba(74,95,189,0.3);color:var(--usa2);}
+.hero-kpi{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--border);border:1px solid var(--border);border-radius:12px;overflow:hidden;max-width:440px;margin-bottom:2rem;}
+.kpi{background:var(--navy2);padding:.9rem;text-align:center;}
+.kpi .n{font-family:var(--font-display);font-size:34px;color:var(--gold);line-height:1;}
+.kpi .l{font-family:var(--font-cond);font-size:11px;color:var(--off);margin-top:3px;letter-spacing:1.5px;text-transform:uppercase;}
+.hero-btns{display:flex;gap:10px;flex-wrap:wrap;}
+.btn-gold{background:linear-gradient(135deg,var(--gold) 0%,#9b7b22 100%);color:var(--navy);border:none;cursor:pointer;font-family:var(--font-cond);font-size:16px;font-weight:700;letter-spacing:.5px;padding:12px 28px;border-radius:8px;transition:all .2s;}
+.btn-gold:hover{transform:translateY(-2px);box-shadow:0 6px 24px rgba(201,168,76,0.35);}
+.btn-outline{background:var(--card);color:var(--white);border:1px solid var(--border);cursor:pointer;font-family:var(--font-cond);font-size:15px;padding:12px 22px;border-radius:8px;transition:all .2s;}
+.btn-outline:hover{background:var(--card2);}
+
+/* ── SECTION HEADERS ── */
+.sh{display:flex;align-items:baseline;gap:12px;padding:2.25rem 0 1.25rem;}
+.sh-title{font-family:var(--font-display);font-size:38px;letter-spacing:1px;}
+.sh-sub{font-family:var(--font-cond);font-size:14px;color:var(--off);letter-spacing:.5px;}
+
+/* ── HOW IT WORKS CARDS ── */
+.how-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px;margin-bottom:2.5rem;}
+.how-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:1.25rem;position:relative;overflow:hidden;}
+.how-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;}
+.how-card:nth-child(1)::before{background:var(--gold);}
+.how-card:nth-child(2)::before{background:var(--can);}
+.how-card:nth-child(3)::before{background:var(--mex2);}
+.how-card:nth-child(4)::before{background:var(--usa2);}
+.how-icon{font-size:30px;margin-bottom:.75rem;}
+.how-h{font-family:var(--font-cond);font-size:17px;font-weight:700;margin-bottom:.4rem;letter-spacing:.3px;}
+.how-p{font-size:13px;color:var(--off);line-height:1.55;}
+
+/* ── PHASE TABS ── */
+.phase-tabs{display:flex;gap:6px;margin-bottom:1.5rem;flex-wrap:wrap;}
+.ptab{background:var(--card);border:1px solid var(--border);color:var(--off);font-family:var(--font-cond);font-size:14px;font-weight:600;letter-spacing:.5px;padding:7px 16px;border-radius:20px;cursor:pointer;transition:all .2s;}
+.ptab.on{background:rgba(201,168,76,0.12);border-color:var(--gold);color:var(--gold);}
+
+/* ── MATCH CARD ── */
+.matches-grid{display:grid;gap:10px;}
+.mc{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;transition:border-color .2s;}
+.mc:hover{border-color:rgba(201,168,76,0.4);}
+.mc-top{display:flex;align-items:center;justify-content:space-between;padding:9px 14px 0;font-family:var(--font-cond);font-size:12px;color:var(--off);letter-spacing:.5px;}
+.st{padding:3px 9px;border-radius:10px;font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;}
+.st-up{background:rgba(200,196,188,0.12);color:var(--off);}
+.st-live{background:rgba(230,29,37,0.15);color:#ff5e63;animation:pulse 1.5s infinite;}
+.st-done{background:rgba(0,168,107,0.12);color:var(--mex2);}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.6}}
+.mc-body{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:10px;padding:14px 14px 10px;}
+.team{text-align:center;}
+.tf{font-size:34px;display:block;margin-bottom:5px;filter:drop-shadow(0 2px 6px rgba(0,0,0,.4));}
+.tn{font-family:var(--font-cond);font-size:14px;font-weight:600;letter-spacing:.3px;}
+.mc-score{text-align:center;min-width:64px;}
+.sc-nums{font-family:var(--font-display);font-size:30px;color:var(--gold);line-height:1;}
+.sc-vs{font-family:var(--font-cond);font-size:13px;color:var(--off);}
+/* prediction section */
+.mc-preds{border-top:1px solid var(--border);padding:12px 14px 8px;}
+.prow{display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap;}
+.plabel{font-family:var(--font-cond);font-size:12px;font-weight:700;color:var(--gold2);letter-spacing:.5px;white-space:nowrap;min-width:90px;}
+.popts{display:flex;gap:5px;flex-wrap:wrap;}
+.popt{background:none;border:1px solid rgba(200,196,188,0.2);color:var(--off);font-family:var(--font-cond);font-size:12px;font-weight:600;letter-spacing:.3px;padding:4px 10px;border-radius:5px;cursor:pointer;transition:all .15s;}
+.popt:hover{border-color:var(--gold);color:var(--gold);}
+.popt.sel{background:rgba(201,168,76,0.14);border-color:var(--gold);color:var(--gold);}
+.popt:disabled{opacity:.35;cursor:default;}
+.mc-wager{border-top:1px solid var(--border);padding:10px 14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.wlabel{font-family:var(--font-cond);font-size:13px;color:var(--off);}
+.winput{background:rgba(255,255,255,0.06);border:1px solid var(--border);color:var(--white);font-family:'Barlow Condensed',monospace;font-size:14px;font-weight:700;padding:5px 10px;border-radius:6px;width:64px;text-align:center;}
+.winput:focus{outline:none;border-color:var(--gold);}
+.wmax{font-family:var(--font-cond);font-size:12px;color:var(--off);}
+.wsubmit{margin-left:auto;background:linear-gradient(135deg,var(--gold),#9b7b22);color:var(--navy);border:none;cursor:pointer;font-family:var(--font-cond);font-size:13px;font-weight:700;letter-spacing:.5px;padding:7px 16px;border-radius:6px;transition:all .15s;}
+.wsubmit:hover{opacity:.85;}
+.wsubmit:disabled{opacity:.35;cursor:default;}
+/* saved indicator */
+.saved-badge{font-family:var(--font-cond);font-size:12px;color:var(--mex2);margin-left:auto;display:none;align-items:center;gap:4px;}
+.saved-badge.show{display:flex;}
+
+/* ── LEADERBOARD ── */
+.lb-wrap{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;}
+.lb-table{width:100%;border-collapse:collapse;}
+.lb-table thead th{text-align:left;padding:11px 14px;font-family:var(--font-cond);font-size:12px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--off);border-bottom:1px solid var(--border);}
+.lb-table tbody tr{border-bottom:1px solid rgba(255,255,255,.035);transition:background .15s;}
+.lb-table tbody tr:hover{background:var(--card2);}
+.lb-table tbody tr.me-row{background:rgba(201,168,76,.05);}
+.lb-table td{padding:12px 14px;font-size:14px;}
+.rank{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;font-family:'Barlow Condensed',monospace;font-size:13px;font-weight:700;}
+.r1{background:rgba(201,168,76,.2);color:var(--gold);}
+.r2{background:rgba(192,192,192,.12);color:#bbb;}
+.r3{background:rgba(180,100,30,.2);color:#cd7f32;}
+.rn{background:rgba(255,255,255,.06);color:var(--off);}
+.av{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:var(--font-cond);font-size:13px;font-weight:700;flex-shrink:0;}
+.p-row{display:flex;align-items:center;gap:10px;}
+.me-tag{font-size:10px;background:rgba(201,168,76,.12);color:var(--gold);padding:2px 7px;border-radius:4px;font-family:var(--font-cond);font-weight:700;letter-spacing:.5px;}
+.pts-cell{font-family:'Barlow Condensed',monospace;font-weight:700;font-size:15px;color:var(--gold2);}
+.wallet-cell{font-family:'Barlow Condensed',monospace;font-size:13px;color:var(--off);}
+
+/* ── MY BETS ── */
+.bstats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:1.5rem;}
+.bstat{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:1rem;text-align:center;}
+.bstat .bn{font-family:var(--font-display);font-size:30px;line-height:1;}
+.bstat .bl{font-family:var(--font-cond);font-size:11px;color:var(--off);margin-top:4px;letter-spacing:1px;text-transform:uppercase;}
+.bets-list{display:grid;gap:9px;}
+.bet-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:13px;display:grid;grid-template-columns:1fr auto;align-items:center;gap:12px;}
+.bet-match{font-family:var(--font-cond);font-size:14px;font-weight:700;margin-bottom:4px;letter-spacing:.3px;}
+.bet-preds{font-size:12px;color:var(--off);line-height:1.6;}
+.bet-preds strong{color:var(--gold2);}
+.bet-right{text-align:right;}
+.bet-amt{font-family:var(--font-cond);font-size:12px;color:var(--off);margin-bottom:3px;}
+.bet-out{font-family:var(--font-cond);font-size:16px;font-weight:700;}
+.out-win{color:#2ecc71;}
+.out-lose{color:#e74c3c;}
+.out-pend{color:var(--off);}
+.empty-state{text-align:center;padding:3rem;color:var(--off);}
+.empty-state .ei{font-size:48px;margin-bottom:1rem;}
+.empty-state h3{font-family:var(--font-cond);font-size:20px;margin-bottom:.4rem;}
+.empty-state p{font-size:13px;}
+
+/* ── LEAGUE ── */
+.league-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:1.5rem;}
+.lform{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:1.75rem;}
+.lform-title{font-family:var(--font-display);font-size:26px;letter-spacing:1px;margin-bottom:1.25rem;}
+.fg{margin-bottom:1.1rem;}
+.flabel{display:block;font-family:var(--font-cond);font-size:13px;color:var(--off);margin-bottom:5px;letter-spacing:.3px;}
+.finput{width:100%;background:rgba(255,255,255,.05);border:1px solid var(--border);color:var(--white);font-family:var(--font-body);font-size:14px;padding:10px 13px;border-radius:7px;transition:border-color .2s;}
+.finput:focus{outline:none;border-color:var(--gold);}
+.finput::placeholder{color:rgba(200,196,188,.35);}
+.league-info{margin-top:1.5rem;background:rgba(0,104,71,.1);border:1px solid rgba(0,168,107,.25);border-radius:var(--radius);padding:1.5rem;display:none;}
+.code-display{font-family:'Barlow Condensed',monospace;font-size:28px;font-weight:700;color:var(--gold);letter-spacing:4px;background:var(--card);border:1px solid var(--border);padding:10px 20px;border-radius:8px;display:inline-block;}
+
+/* ── ADMIN MODAL ── */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:1000;display:flex;align-items:center;justify-content:center;padding:1rem;opacity:0;pointer-events:none;transition:opacity .25s;}
+.modal-overlay.show{opacity:1;pointer-events:all;}
+.modal{background:var(--navy2);border:1px solid var(--border);border-radius:14px;width:100%;max-width:520px;overflow:hidden;}
+.modal-hdr{padding:1.25rem 1.5rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+.modal-title{font-family:var(--font-display);font-size:26px;color:var(--can);}
+.modal-close{background:none;border:none;color:var(--off);font-size:22px;cursor:pointer;padding:4px;transition:color .15s;}
+.modal-close:hover{color:var(--white);}
+.modal-body{padding:1.5rem;}
+/* admin login */
+.login-form{display:flex;flex-direction:column;gap:1rem;}
+.login-err{background:rgba(230,29,37,.1);border:1px solid rgba(230,29,37,.3);border-radius:6px;padding:9px 13px;font-size:13px;color:var(--can2);display:none;}
+.login-err.show{display:block;}
+/* admin dashboard */
+.admin-panel{display:none;}
+.admin-panel.show{display:block;}
+.admin-tabs{display:flex;gap:4px;margin-bottom:1.25rem;}
+.atab{background:none;border:1px solid var(--border);color:var(--off);font-family:var(--font-cond);font-size:14px;font-weight:700;padding:6px 14px;border-radius:6px;cursor:pointer;transition:all .2s;}
+.atab.on{background:rgba(230,29,37,.12);border-color:var(--can);color:var(--can);}
+.admin-section{display:none;}
+.admin-section.on{display:block;}
+.admin-match-row{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin-bottom:8px;display:grid;grid-template-columns:1fr auto;align-items:center;gap:12px;}
+.amr-match{font-family:var(--font-cond);font-size:14px;font-weight:700;}
+.amr-inputs{display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+.score-in{background:rgba(255,255,255,.06);border:1px solid var(--border);color:var(--white);font-family:var(--font-cond);font-size:15px;font-weight:700;padding:4px 8px;border-radius:5px;width:50px;text-align:center;}
+.score-in:focus{outline:none;border-color:var(--gold);}
+.save-btn{background:rgba(201,168,76,.15);border:1px solid var(--gold);color:var(--gold);font-family:var(--font-cond);font-size:13px;font-weight:700;padding:5px 12px;border-radius:5px;cursor:pointer;transition:all .15s;}
+.save-btn:hover{background:rgba(201,168,76,.3);}
+.gs-status{font-size:13px;color:var(--off);margin-bottom:1rem;padding:10px 13px;background:var(--card);border-radius:7px;border:1px solid var(--border);}
+.gs-status.ok{border-color:rgba(0,168,107,.3);color:var(--mex2);}
+.gs-status.err{border-color:rgba(230,29,37,.3);color:var(--can2);}
+
+/* ── TOAST ── */
+.toast{position:fixed;bottom:80px;right:20px;z-index:9999;background:var(--navy2);border:1px solid var(--gold);border-radius:10px;padding:12px 18px;max-width:290px;transform:translateY(20px);opacity:0;transition:all .3s;pointer-events:none;}
+.toast.show{transform:translateY(0);opacity:1;}
+.toast-t{font-family:var(--font-cond);font-size:15px;font-weight:700;color:var(--gold2);margin-bottom:2px;}
+.toast-m{font-size:13px;color:var(--off);}
+
+/* ── MOBILE NAV ── */
+@media(max-width:640px){
+  .hdr-nav{display:none;}
+  .mob-nav{display:flex;position:fixed;bottom:0;left:0;right:0;background:rgba(11,20,38,.98);border-top:1px solid var(--border);z-index:200;padding-bottom:env(safe-area-inset-bottom);}
+  .mob-btn{flex:1;background:none;border:none;cursor:pointer;color:var(--off);font-family:var(--font-cond);font-size:10px;font-weight:600;letter-spacing:.5px;padding:10px 4px 12px;display:flex;flex-direction:column;align-items:center;gap:3px;transition:color .15s;}
+  .mob-btn svg{width:21px;height:21px;stroke-width:1.8;}
+  .mob-btn.on{color:var(--gold);}
+  body{padding-bottom:72px;}
+}
+@media(min-width:641px){.mob-nav{display:none;}}
+@media(max-width:480px){
+  .mc-body{gap:6px;}
+  .tf{font-size:26px;}
+  .sc-nums{font-size:22px;}
+  .hero-title{font-size:52px;}
+}
+</style>
+</head>
+<body>
+
+<!-- ── HEADER ─────────────────────────────── -->
+<header class="hdr">
+  <div class="accent-bar"></div>
+  <div class="hdr-bar">
+    <a class="logo-wrap" href="#">
+      <span class="logo-trophy">🏆</span>
+      <div>
+        <div class="logo-text">WC26 PREDICTOR</div>
+        <div class="logo-sub">We Are 26</div>
+      </div>
+    </a>
+    <nav class="hdr-nav">
+      <button class="nav-btn on" onclick="go('home')">Home</button>
+      <button class="nav-btn" onclick="go('matches')">Matches</button>
+      <button class="nav-btn" onclick="go('leaderboard')">Leaderboard</button>
+      <button class="nav-btn" onclick="go('mybets')">My Bets</button>
+      <button class="nav-btn" onclick="go('league')">League</button>
+    </nav>
+    <div class="wallet-chip">🏅 <b id="wlt">100</b> pts</div>
+    <div class="admin-chip" onclick="openAdmin()">⚙ Admin</div>
+  </div>
+</header>
+
+<main class="main">
+
+<!-- ═══════════════ HOME ═══════════════ -->
+<section class="sec on" id="sec-home">
+  <div class="hero">
+    <div class="hero-bg">26</div>
+    <div class="hero-badge">⚽ June 11 — July 19, 2026</div>
+    <h1 class="hero-title">
+      <span class="t-gold">FANTASY</span><br>
+      <span class="t-can">PRE</span><span class="t-mex">DIC</span><span class="t-usa">TOR</span>
+    </h1>
+    <p class="hero-sub">Pick results. Wager points. Ride the bracket. One trophy. Who calls it?</p>
+    <div class="hero-flags">
+      <span class="flag-pill fp-can">🇨🇦 Canada</span>
+      <span class="flag-pill fp-mex">🇲🇽 Mexico</span>
+      <span class="flag-pill fp-usa">🇺🇸 USA</span>
+    </div>
+    <div class="hero-kpi">
+      <div class="kpi"><div class="n" id="hs-matches">48</div><div class="l">Matches</div></div>
+      <div class="kpi"><div class="n" id="hs-players">0</div><div class="l">Players</div></div>
+      <div class="kpi"><div class="n" id="hs-wallet">100</div><div class="l">Your Pts</div></div>
+    </div>
+    <div class="hero-btns">
+      <button class="btn-gold" onclick="go('matches')">Make Predictions →</button>
+      <button class="btn-outline" onclick="go('leaderboard')">Leaderboard</button>
+    </div>
+  </div>
+
+  <div class="sh"><div class="sh-title">HOW IT WORKS</div></div>
+  <div class="how-grid">
+    <div class="how-card">
+      <div class="how-icon">💰</div>
+      <div class="how-h">100 Points to Start</div>
+      <p class="how-p">Every player is provisioned exactly 100 pts on registration. This is your betting stash — guard it.</p>
+    </div>
+    <div class="how-card">
+      <div class="how-icon">🎯</div>
+      <div class="how-h">4 Questions Per Match</div>
+      <p class="how-p">Q1 Result · Q2 First Scorer · Q3 Goals O/U · Q4 Clean Sheet. Wager up to 10 pts total per match.</p>
+    </div>
+    <div class="how-card">
+      <div class="how-icon">📈</div>
+      <div class="how-h">Double or Nothing</div>
+      <p class="how-p">Win doubles your wager (+100% profit). Wrong predictions forfeit the staked pts. Bankruptcy = read-only.</p>
+    </div>
+    <div class="how-card">
+      <div class="how-icon">🏆</div>
+      <div class="how-h">Bracket Bonus (Phase 2)</div>
+      <p class="how-p">Knockout predictions earn 3× pts. Predict the winner through every round for compounding multipliers.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════ MATCHES ═══════════════ -->
+<section class="sec" id="sec-matches">
+  <div class="sh"><div class="sh-title">MATCHES</div><div class="sh-sub">Lock predictions before kickoff · 10 pts max per match</div></div>
+  <div class="phase-tabs">
+    <button class="ptab on" onclick="filterM('all',this)">All</button>
+    <button class="ptab" onclick="filterM('group',this)">Group Stage</button>
+    <button class="ptab" onclick="filterM('knockout',this)">Knockout</button>
+    <button class="ptab" onclick="filterM('upcoming',this)">Upcoming</button>
+    <button class="ptab" onclick="filterM('live',this)">🔴 Live</button>
+  </div>
+  <div class="matches-grid" id="mg"></div>
+</section>
+
+<!-- ═══════════════ LEADERBOARD ═══════════════ -->
+<section class="sec" id="sec-leaderboard">
+  <div class="sh"><div class="sh-title">LEADERBOARD</div><div class="sh-sub">Tiebreaker: total goals predicted correctly</div></div>
+  <div class="lb-wrap">
+    <table class="lb-table">
+      <thead><tr>
+        <th style="width:42px;">#</th>
+        <th>Player</th>
+        <th>W / L / D</th>
+        <th>Wallet</th>
+        <th>Total Pts</th>
+      </tr></thead>
+      <tbody id="lb-body"></tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ═══════════════ MY BETS ═══════════════ -->
+<section class="sec" id="sec-mybets">
+  <div class="sh"><div class="sh-title">MY BETS</div><div class="sh-sub">Your prediction history</div></div>
+  <div class="bstats">
+    <div class="bstat"><div class="bn" id="bs-placed">0</div><div class="bl">Placed</div></div>
+    <div class="bstat"><div class="bn" style="color:#2ecc71" id="bs-wins">0</div><div class="bl">Wins</div></div>
+    <div class="bstat"><div class="bn" style="color:#e74c3c" id="bs-losses">0</div><div class="bl">Losses</div></div>
+    <div class="bstat"><div class="bn" style="color:var(--off)" id="bs-pend">0</div><div class="bl">Pending</div></div>
+  </div>
+  <div class="bets-list" id="bets-list"></div>
+  <div class="empty-state" id="bets-empty">
+    <div class="ei">🎯</div>
+    <h3>No predictions yet</h3>
+    <p>Head to Matches and place your first bet!</p>
+  </div>
+</section>
+
+<!-- ═══════════════ LEAGUE ═══════════════ -->
+<section class="sec" id="sec-league">
+  <div class="sh"><div class="sh-title">LEAGUE</div><div class="sh-sub">Join or create a private league</div></div>
+  <div class="league-grid">
+    <div class="lform">
+      <div class="lform-title" style="color:var(--usa2)">JOIN A LEAGUE</div>
+      <div class="fg"><label class="flabel">Your Name</label><input class="finput" id="join-name" type="text" placeholder="e.g. Saurabh D."></div>
+      <div class="fg"><label class="flabel">Invite Code</label><input class="finput" id="join-code" type="text" placeholder="WC26-XXXX" style="letter-spacing:2px;font-family:'Barlow Condensed',monospace;font-weight:700;"></div>
+      <button class="btn-gold" style="width:100%;margin-top:4px;" onclick="joinLeague()">Join League →</button>
+    </div>
+    <div class="lform">
+      <div class="lform-title" style="color:var(--mex2)">CREATE A LEAGUE</div>
+      <div class="fg"><label class="flabel">League Name</label><input class="finput" id="cr-lname" type="text" placeholder="e.g. Office Legends"></div>
+      <div class="fg"><label class="flabel">Admin Name</label><input class="finput" id="cr-aname" type="text" placeholder="Your name"></div>
+      <button class="btn-gold" style="width:100%;margin-top:4px;background:linear-gradient(135deg,var(--mex2),var(--mex));" onclick="createLeague()">Create League →</button>
+    </div>
+  </div>
+  <div class="league-info" id="league-info">
+    <div style="font-family:var(--font-display);font-size:22px;color:var(--mex2);margin-bottom:.5rem;" id="li-name"></div>
+    <div style="font-family:var(--font-cond);font-size:13px;color:var(--off);margin-bottom:12px;">Share this code with your friends:</div>
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+      <div class="code-display" id="li-code"></div>
+      <button class="btn-outline" style="font-size:14px;padding:9px 16px;" onclick="copyCode()">Copy Code</button>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<!-- ─── MOBILE NAV ──────────────────────────── -->
+<nav class="mob-nav">
+  <button class="mob-btn on" id="mb-home" onclick="go('home')">
+    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+    Home
+  </button>
+  <button class="mob-btn" id="mb-matches" onclick="go('matches')">
+    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path stroke-linecap="round" d="M12 8v4l3 3"/></svg>
+    Matches
+  </button>
+  <button class="mob-btn" id="mb-leaderboard" onclick="go('leaderboard')">
+    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+    Standings
+  </button>
+  <button class="mob-btn" id="mb-mybets" onclick="go('mybets')">
+    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+    My Bets
+  </button>
+  <button class="mob-btn" id="mb-league" onclick="go('league')">
+    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+    League
+  </button>
+</nav>
+
+<!-- ─── ADMIN MODAL ──────────────────────────── -->
+<div class="modal-overlay" id="admin-overlay" onclick="closeAdminIfOutside(event)">
+  <div class="modal" id="admin-modal">
+    <div class="modal-hdr">
+      <div class="modal-title">⚙ ADMIN PANEL</div>
+      <button class="modal-close" onclick="closeAdmin()">✕</button>
+    </div>
+    <div class="modal-body">
+
+      <!-- LOGIN FORM -->
+      <div id="admin-login">
+        <p style="font-family:var(--font-cond);font-size:13px;color:var(--off);margin-bottom:1rem;">Admin access only. Enter the password to continue.</p>
+        <div class="login-err" id="login-err">Incorrect password. Try again.</div>
+        <div class="fg" style="margin-top:.75rem;"><label class="flabel">Password</label>
+          <input class="finput" id="admin-pw" type="password" placeholder="Enter admin password" onkeydown="if(event.key==='Enter')tryLogin()">
+        </div>
+        <button class="btn-gold" style="width:100%;" onclick="tryLogin()">Login →</button>
+      </div>
+
+      <!-- ADMIN DASHBOARD (shown after login) -->
+      <div class="admin-panel" id="admin-dash">
+        <div class="admin-tabs">
+          <button class="atab on" onclick="switchATab('results',this)">Post Results</button>
+          <button class="atab" onclick="switchATab('schedule',this)">Manage Fixtures</button>
+          <button class="atab" onclick="switchATab('settings',this)">Settings</button>
+        </div>
+
+        <!-- Results Tab -->
+        <div class="admin-section on" id="at-results">
+          <div class="gs-status" id="gs-status">💾 Data stored in localStorage. Configure Google Sheets API key below to enable cloud sync.</div>
+          <div id="admin-match-list"></div>
+        </div>
+
+        <!-- Schedule Tab -->
+        <div class="admin-section" id="at-schedule">
+          <p style="font-family:var(--font-cond);font-size:14px;color:var(--off);margin-bottom:1rem;">Add or modify match fixtures. New fixtures propagate to all users instantly.</p>
+          <div class="fg"><label class="flabel">Team A</label><input class="finput" id="a-teamA" placeholder="e.g. Brazil"></div>
+          <div class="fg"><label class="flabel">Team B</label><input class="finput" id="a-teamB" placeholder="e.g. Germany"></div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+            <div class="fg"><label class="flabel">Date</label><input class="finput" id="a-date" placeholder="Jun 15"></div>
+            <div class="fg"><label class="flabel">Phase</label>
+              <select class="finput" id="a-phase" style="cursor:pointer;">
+                <option value="group">Group Stage</option>
+                <option value="knockout">Knockout</option>
+              </select>
+            </div>
+          </div>
+          <div class="fg"><label class="flabel">Venue</label><input class="finput" id="a-venue" placeholder="e.g. MetLife Stadium, NJ"></div>
+          <button class="btn-gold" style="width:100%;" onclick="addFixture()">Add Fixture</button>
+        </div>
+
+        <!-- Settings Tab -->
+        <div class="admin-section" id="at-settings">
+          <div class="fg">
+            <label class="flabel">Apps Script Web App URL</label>
+            <input class="finput" id="gs-asurl" type="text" placeholder="https://script.google.com/macros/s/AKfycb.../exec">
+            <div style="font-family:var(--font-cond);font-size:12px;color:var(--off);margin-top:6px;line-height:1.5;">
+              Paste the URL from: Apps Script → Deploy → New deployment → Web App → Execute as: Me → Anyone can access → Deploy → Copy URL
+            </div>
+          </div>
+          <button class="btn-gold" style="width:100%;" onclick="saveGSConfig()">Save & Test Connection</button>
+          <div style="margin-top:1rem;font-family:var(--font-cond);font-size:13px;color:var(--off);line-height:1.6;">
+            <strong style="color:var(--gold2);">Google Sheets Schema (5 tabs):</strong><br>
+            Tab 1: <code style="color:var(--mex2);">Config</code> — Key/Value pairs (starting stash, max wager, multipliers)<br>
+            Tab 2: <code style="color:var(--mex2);">Fixtures</code> — Match_ID, Date, Team_A, Team_B, Score_A, Score_B, Status<br>
+            Tab 3: <code style="color:var(--mex2);">Predictions</code> — Player_ID, Match_ID, Q1–Q4, Wager, Outcome<br>
+            Tab 4: <code style="color:var(--mex2);">Leaderboard</code> — Auto-computed via SUMIF/VLOOKUP scripts<br>
+            Tab 5: <code style="color:var(--mex2);">Audit</code> — Timestamped log of all actions
+          </div>
+          <div style="margin-top:1rem;">
+            <button class="save-btn" onclick="resetAllData()">⚠ Reset All Local Data</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ─── TOAST ─── -->
+<div class="toast" id="toast">
+  <div class="toast-t" id="toast-t"></div>
+  <div class="toast-m" id="toast-m"></div>
+</div>
+
+<!-- ════════════════════════════════════════════
+     JAVASCRIPT
+════════════════════════════════════════════ -->
+<script>
+// ══════════════════════════════════════════
+// CONSTANTS & CONFIG
+// ══════════════════════════════════════════
+const ADMIN_PW = 'wc2026admin';   // hardcoded admin password
+const LS_KEY   = 'wc26_data';     // localStorage key
+
+// Default match data (source of truth if nothing in localStorage)
+const DEFAULT_MATCHES = [
+  {id:1,phase:'group',group:'A',flagA:'🇲🇽',flagB:'🇺🇸',nameA:'Mexico',nameB:'USA',date:'Jun 11',venue:'AT&T Stadium, Dallas',status:'upcoming'},
+  {id:2,phase:'group',group:'A',flagA:'🇨🇦',flagB:'🇧🇷',nameA:'Canada',nameB:'Brazil',date:'Jun 12',venue:'MetLife Stadium, NJ',status:'upcoming'},
+  {id:3,phase:'group',group:'B',flagA:'🏴󠁧󠁢󠁥󠁮󠁧󠁿',flagB:'🇫🇷',nameA:'England',nameB:'France',date:'Jun 13',venue:'SoFi Stadium, LA',status:'live',scoreA:1,scoreB:1},
+  {id:4,phase:'group',group:'B',flagA:'🇩🇪',flagB:'🇯🇵',nameA:'Germany',nameB:'Japan',date:'Jun 13',venue:"Levi's Stadium, SF",status:'live',scoreA:2,scoreB:0},
+  {id:5,phase:'group',group:'C',flagA:'🇦🇷',flagB:'🇨🇱',nameA:'Argentina',nameB:'Chile',date:'Jun 9',venue:'Rose Bowl, LA',status:'complete',scoreA:3,scoreB:0},
+  {id:6,phase:'group',group:'C',flagA:'🇪🇸',flagB:'🇵🇹',nameA:'Spain',nameB:'Portugal',date:'Jun 10',venue:'NRG Stadium, Houston',status:'complete',scoreA:2,scoreB:2},
+  {id:7,phase:'knockout',group:'R16',flagA:'🇳🇱',flagB:'🇸🇳',nameA:'Netherlands',nameB:'Senegal',date:'Jun 28',venue:'Lincoln Financial, Philly',status:'upcoming'},
+  {id:8,phase:'knockout',group:'R16',flagA:'🇮🇹',flagB:'🇺🇾',nameA:'Italy',nameB:'Uruguay',date:'Jun 29',venue:'Gillette Stadium, Boston',status:'upcoming'},
+];
+
+const DEFAULT_PLAYERS = [
+  {name:'Rahul K.',   av:'RK', color:'#4A90D9', wins:8, losses:2, draws:1, wallet:134, pts:67},
+  {name:'Priya S.',   av:'PS', color:'#E61D25', wins:7, losses:3, draws:2, wallet:118, pts:61},
+  {name:'Saurabh D.', av:'SD', color:'#C9A84C', wins:6, losses:4, draws:1, wallet:100, pts:54, isMe:true},
+  {name:'Arjun M.',   av:'AM', color:'#00a86b', wins:5, losses:5, draws:1, wallet:95,  pts:48},
+  {name:'Neha R.',    av:'NR', color:'#9B59B6', wins:4, losses:5, draws:3, wallet:88,  pts:44},
+  {name:'Vikram T.',  av:'VT', color:'#1ABC9C', wins:3, losses:6, draws:2, wallet:72,  pts:38},
+  {name:'Ananya P.',  av:'AP', color:'#E67E22', wins:2, losses:7, draws:2, wallet:65,  pts:31},
+  {name:'Deepak J.',  av:'DJ', color:'#7F8C8D', wins:1, losses:9, draws:1, wallet:48,  pts:22},
+];
+
+// ══════════════════════════════════════════
+// LOCALSTORAGE HELPERS
+// (This is the data layer. Swap readData/writeData
+//  with Google Sheets API calls to upgrade to cloud.)
+// ══════════════════════════════════════════
+function readData() {
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch(e) { return null; }
+}
+
+function writeData(data) {
+  try {
+    localStorage.setItem(LS_KEY, JSON.stringify(data));
+    // If Google Sheets is configured, push to cloud too
+    const cfg = getGSConfig();
+    if (cfg.apiKey && cfg.sheetId) pushToSheets(data, cfg);
+  } catch(e) { console.warn('Storage write failed', e); }
+}
+
+function initData() {
+  const existing = readData();
+  if (existing) return existing;
+  const fresh = {
+    wallet: 100,
+    bets: [],
+    predictions: {},
+    wagers: {},
+    matches: DEFAULT_MATCHES,
+    players: DEFAULT_PLAYERS,
+    gsConfig: { apiKey:'', sheetId:'' }
+  };
+  writeData(fresh);
+  return fresh;
+}
+
+// ══════════════════════════════════════════
+// GOOGLE APPS SCRIPT CLIENT
+// ──────────────────────────────────────────
+// WHY Apps Script instead of direct Sheets API:
+//   - Direct Sheets API v4 needs OAuth 2.0 to WRITE.
+//   - OAuth requires a backend redirect flow — not possible
+//     in a pure HTML file.
+//   - Apps Script runs AS YOU (the owner) on Google's servers,
+//     so it already has write permission to your Sheet.
+//   - You deploy it as a public Web App POST endpoint.
+//   - This HTML just calls that URL — no auth needed client-side.
+//
+// FLOW:
+//   Browser → POST { action, data } → Apps Script doPost()
+//           → appends row to Sheet → returns { ok, ... }
+// ══════════════════════════════════════════
+
+function getASUrl() {
+  const d = readData();
+  return d?.gsConfig?.asUrl || '';
+}
+
+/**
+ * Core API call to Apps Script Web App
+ * All reads and writes go through this one function.
+ */
+async function callAS(action, data = {}) {
+  const url = getASUrl();
+  if (!url) return { ok: false, error: 'Apps Script URL not configured. Go to Admin → Settings.' };
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      // Apps Script requires text/plain for CORS to work without preflight
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({ action, data })
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    return await res.json();
+  } catch(e) {
+    console.warn('Apps Script call failed:', e);
+    return { ok: false, error: e.message };
+  }
+}
+
+async function testSheetsConnection(asUrl) {
+  if (!asUrl) return { ok:false, msg:'Paste your Apps Script Web App URL first.' };
+  // doGet returns a health-check JSON
+  try {
+    const res = await fetch(asUrl);
+    const json = await res.json();
+    if (json.status) return { ok:true, msg:'Connected: ' + json.status };
+    return { ok:false, msg:'Unexpected response from Apps Script.' };
+  } catch(e) {
+    return { ok:false, msg:'Cannot reach Apps Script URL: ' + e.message };
+  }
+}
+
+/**
+ * Called after every bet submission.
+ * Saves to localStorage immediately (optimistic),
+ * then syncs to Sheets in the background.
+ */
+async function syncBetToSheets(bet, playerName) {
+  const url = getASUrl();
+  if (!url) return; // no URL configured — localStorage only
+  const result = await callAS('saveBet', {
+    playerId:   'player_' + playerName.replace(/\s+/g,'_').toLowerCase(),
+    playerName,
+    matchId:    bet.matchId,
+    q1: bet.predictions.q1 || '',
+    q2: bet.predictions.q2 || '',
+    q3: bet.predictions.q3 || '',
+    q4: bet.predictions.q4 || '',
+    wager:      bet.wager,
+    timestamp:  bet.timestamp
+  });
+  if (!result.ok) console.warn('Bet sync to Sheets failed:', result.error);
+}
+
+/**
+ * Admin: push a result to Sheets.
+ * Apps Script will also settle all pending bets server-side.
+ */
+async function syncResultToSheets(matchId, scoreA, scoreB, status) {
+  return await callAS('saveResult', { matchId, scoreA, scoreB, status });
+}
+
+/**
+ * Admin: push a new fixture to Sheets.
+ */
+async function syncFixtureToSheets(fixture) {
+  return await callAS('addFixture', fixture);
+}
+
+// ══════════════════════════════════════════
+// APP STATE (loaded from localStorage)
+// ══════════════════════════════════════════
+let S = initData();
+
+function save() { writeData(S); }
+
+function updateWalletUI() {
+  document.getElementById('wlt').textContent = S.wallet;
+  document.getElementById('hs-wallet').textContent = S.wallet;
+  document.getElementById('hs-players').textContent = S.players.length;
+}
+
+// ══════════════════════════════════════════
+// NAVIGATION
+// ══════════════════════════════════════════
+function go(id) {
+  document.querySelectorAll('.sec').forEach(s => s.classList.remove('on'));
+  document.querySelector('#sec-'+id).classList.add('on');
+  document.querySelectorAll('.nav-btn').forEach((b,i) => {
+    b.classList.toggle('on', ['home','matches','leaderboard','mybets','league'][i] === id);
+  });
+  document.querySelectorAll('.mob-btn').forEach(b => b.classList.remove('on'));
+  const mb = document.getElementById('mb-'+id);
+  if(mb) mb.classList.add('on');
+  window.scrollTo(0,0);
+  if(id==='leaderboard') renderLB();
+  if(id==='mybets') renderBets();
+  if(id==='matches') renderMatches('all');
+}
+
+// ══════════════════════════════════════════
+// MATCHES
+// ══════════════════════════════════════════
+let currentFilter = 'all';
+
+function filterM(f, el) {
+  currentFilter = f;
+  document.querySelectorAll('.ptab').forEach(t => t.classList.remove('on'));
+  el.classList.add('on');
+  renderMatches(f);
+}
+
+function renderMatches(filter) {
+  const filtered = S.matches.filter(m => {
+    if(filter==='all') return true;
+    if(filter==='group') return m.phase==='group';
+    if(filter==='knockout') return m.phase==='knockout';
+    if(filter==='upcoming') return m.status==='upcoming';
+    if(filter==='live') return m.status==='live';
+    return true;
+  });
+
+  const g = document.getElementById('mg');
+  if(!filtered.length) {
+    g.innerHTML = `<div class="empty-state"><div class="ei">📋</div><h3>No matches</h3><p>No matches in this filter.</p></div>`;
+    return;
+  }
+
+  g.innerHTML = filtered.map(m => buildMatchCard(m)).join('');
+}
+
+function buildMatchCard(m) {
+  const locked = m.status === 'complete';
+  const pred = S.predictions[m.id] || {};
+  const wager = S.wagers[m.id] || 2;
+  const submitted = S.bets.some(b => b.matchId === m.id);
+
+  const stMap = { upcoming:'<span class="st st-up">UPCOMING</span>',
+                  live:'<span class="st st-live">● LIVE</span>',
+                  complete:'<span class="st st-done">✓ FULL TIME</span>' };
+
+  const scoreHTML = m.status==='upcoming'
+    ? `<div class="sc-vs">VS</div>`
+    : `<div class="sc-nums">${m.scoreA??0} – ${m.scoreB??0}</div>`;
+
+  function qRow(key, label, opts) {
+    const btns = opts.map(o =>
+      `<button class="popt${pred[key]===o?' sel':''}" onclick="selPred(${m.id},'${key}','${o}',this)" ${locked||submitted?'disabled':''} >${o}</button>`
+    ).join('');
+    return `<div class="prow"><span class="plabel">${label}</span><div class="popts">${btns}</div></div>`;
+  }
+
+  const predSection = locked ? '' : `
+    <div class="mc-preds">
+      ${qRow('q1','Q1 Result',['Home Win','Draw','Away Win'])}
+      ${qRow('q2','Q2 First Goal',[m.nameA,m.nameB,'No Goal'])}
+      ${qRow('q3','Q3 Goals O/U',['0–1 Goals','2–3 Goals','4+ Goals'])}
+      ${qRow('q4','Q4 Clean Sheet',['Yes','No'])}
+    </div>
+    <div class="mc-wager">
+      <span class="wlabel">Wager</span>
+      <input class="winput" type="number" min="1" max="10" value="${wager}" id="w-${m.id}" oninput="setWager(${m.id},this.value)">
+      <span class="wmax">pts / 10 max</span>
+      <div class="saved-badge${submitted?' show':''}" id="saved-${m.id}">✓ Submitted</div>
+      <button class="wsubmit" onclick="submitBet(${m.id})" id="sbtn-${m.id}" ${submitted?'disabled':''}>
+        ${submitted?'Submitted':'Place Bet'}
+      </button>
+    </div>`;
+
+  return `<div class="mc">
+    <div class="mc-top">
+      <span>${m.phase==='group'?'Group '+m.group:'Round of 16'} · ${m.date} · ${m.venue}</span>
+      ${stMap[m.status]||''}
+    </div>
+    <div class="mc-body">
+      <div class="team"><span class="tf">${m.flagA}</span><span class="tn">${m.nameA}</span></div>
+      <div class="mc-score">${scoreHTML}</div>
+      <div class="team"><span class="tf">${m.flagB}</span><span class="tn">${m.nameB}</span></div>
+    </div>
+    ${predSection}
+  </div>`;
+}
+
+function selPred(matchId, q, val, btn) {
+  if(!S.predictions[matchId]) S.predictions[matchId] = {};
+  S.predictions[matchId][q] = val;
+  btn.closest('.popts').querySelectorAll('.popt').forEach(b => b.classList.remove('sel'));
+  btn.classList.add('sel');
+  save();
+}
+
+function setWager(matchId, val) {
+  S.wagers[matchId] = Math.min(10, Math.max(1, parseInt(val)||1));
+  save();
+}
+
+function submitBet(matchId) {
+  const m = S.matches.find(x => x.id===matchId);
+  const preds = S.predictions[matchId] || {};
+  const wager = S.wagers[matchId] || 2;
+
+  if (!Object.keys(preds).length) { toast('No predictions!','Select at least one answer.'); return; }
+  if (wager > S.wallet) { toast('Not enough points!', `Need ${wager} pts, have ${S.wallet}.`); return; }
+  if (S.wallet <= 0) { toast('Bankrupt!', 'Your wallet is at 0. Read-only mode.'); return; }
+
+  S.wallet -= wager;
+  S.bets.push({ matchId, match:m, predictions:{...preds}, wager, outcome:'pending', timestamp:new Date().toISOString() });
+  save();
+  updateWalletUI();
+  toast('Bet Placed! 🎯', `${wager} pts wagered on ${m.nameA} vs ${m.nameB}`);
+  // sync to Sheets in background (non-blocking)
+  syncBetToSheets(S.bets[S.bets.length-1], S.players.find(p=>p.isMe)?.name || 'Player');
+
+  // Re-render just this card area
+  const sbtn = document.getElementById('sbtn-'+matchId);
+  const saved = document.getElementById('saved-'+matchId);
+  if(sbtn){ sbtn.disabled=true; sbtn.textContent='Submitted'; }
+  if(saved) saved.classList.add('show');
+  // disable all prediction buttons for this match
+  document.querySelectorAll(`#mg .mc .popt`).forEach(b => {
+    if(b.closest('.mc') && b.closest('.mc').querySelector(`[id="sbtn-${matchId}"]`)) b.disabled=true;
+  });
+}
+
+// ══════════════════════════════════════════
+// LEADERBOARD
+// ══════════════════════════════════════════
+function renderLB() {
+  // Update me row with current wallet
+  const meIdx = S.players.findIndex(p => p.isMe);
+  if(meIdx>=0) S.players[meIdx].wallet = S.wallet;
+
+  const sorted = [...S.players].sort((a,b) => b.pts - a.pts || b.wallet - a.wallet);
+  document.getElementById('lb-body').innerHTML = sorted.map((p,i) => {
+    const rc = i===0?'r1':i===1?'r2':i===2?'r3':'rn';
+    const me = p.isMe ? 'me-row' : '';
+    return `<tr class="${me}">
+      <td><span class="rank ${rc}">${i+1}</span></td>
+      <td><div class="p-row">
+        <div class="av" style="background:${p.color}22;color:${p.color}">${p.av}</div>
+        <span>${p.name}</span>
+        ${p.isMe?'<span class="me-tag">YOU</span>':''}
+      </div></td>
+      <td style="font-family:'Barlow Condensed',sans-serif;font-size:13px;color:var(--off);">${p.wins}W ${p.losses}L ${p.draws}D</td>
+      <td class="wallet-cell">${p.wallet} pts</td>
+      <td class="pts-cell">${p.pts}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ══════════════════════════════════════════
+// MY BETS
+// ══════════════════════════════════════════
+function renderBets() {
+  const wins  = S.bets.filter(b=>b.outcome==='win').length;
+  const losses= S.bets.filter(b=>b.outcome==='loss').length;
+  const pend  = S.bets.filter(b=>b.outcome==='pending').length;
+  document.getElementById('bs-placed').textContent  = S.bets.length;
+  document.getElementById('bs-wins').textContent    = wins;
+  document.getElementById('bs-losses').textContent  = losses;
+  document.getElementById('bs-pend').textContent    = pend;
+
+  const list = document.getElementById('bets-list');
+  const empty = document.getElementById('bets-empty');
+  if(!S.bets.length){ list.innerHTML=''; empty.style.display='block'; return; }
+  empty.style.display='none';
+
+  list.innerHTML = [...S.bets].reverse().map(b => {
+    const ql = {q1:'Result',q2:'First Goal',q3:'Goals',q4:'Clean Sheet'};
+    const plines = Object.entries(b.predictions).map(([q,v]) => `${ql[q]}: <strong>${v}</strong>`).join(' · ');
+    const oc = {win:'out-win',loss:'out-lose',pending:'out-pend'}[b.outcome];
+    const ot = {win:`+${b.wager} pts ✓`,loss:`−${b.wager} pts ✗`,pending:`${b.wager} pts (pending)`}[b.outcome];
+    return `<div class="bet-card">
+      <div>
+        <div class="bet-match">${b.match?.flagA||'⚽'} ${b.match?.nameA||'?'} vs ${b.match?.nameB||'?'} ${b.match?.flagB||''}</div>
+        <div class="bet-preds">${plines}</div>
+      </div>
+      <div class="bet-right">
+        <div class="bet-amt">${b.wager} pts wagered</div>
+        <div class="bet-out ${oc}">${ot}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ══════════════════════════════════════════
+// LEAGUE
+// ══════════════════════════════════════════
+function joinLeague() {
+  const n = document.getElementById('join-name').value.trim();
+  const c = document.getElementById('join-code').value.trim();
+  if(!n||!c){ toast('Missing fields','Enter your name and invite code.'); return; }
+  if(!/^WC26-/i.test(c)){ toast('Invalid code','Invite codes start with WC26-'); return; }
+  toast('🎉 Joined!',`Welcome ${n}! You're in the league.`);
+}
+
+function createLeague() {
+  const ln = document.getElementById('cr-lname').value.trim();
+  const an = document.getElementById('cr-aname').value.trim();
+  if(!ln||!an){ toast('Missing fields','Fill in all fields.'); return; }
+  const code = 'WC26-'+Math.random().toString(36).toUpperCase().substr(2,4);
+  document.getElementById('li-name').textContent = ln;
+  document.getElementById('li-code').textContent = code;
+  document.getElementById('league-info').style.display='block';
+  toast('🏆 League Created!','Share the code with your friends.');
+}
+
+function copyCode() {
+  const c = document.getElementById('li-code').textContent;
+  navigator.clipboard?.writeText(c).catch(()=>{});
+  toast('Copied!',`Code ${c} copied.`);
+}
+
+// ══════════════════════════════════════════
+// ADMIN PANEL
+// ══════════════════════════════════════════
+let adminLoggedIn = false;
+
+function openAdmin() {
+  document.getElementById('admin-overlay').classList.add('show');
+  if(adminLoggedIn) showAdminDash();
+}
+function closeAdmin() {
+  document.getElementById('admin-overlay').classList.remove('show');
+}
+function closeAdminIfOutside(e) {
+  if(e.target===document.getElementById('admin-overlay')) closeAdmin();
+}
+
+function tryLogin() {
+  const pw = document.getElementById('admin-pw').value;
+  if(pw === ADMIN_PW) {
+    adminLoggedIn = true;
+    document.getElementById('login-err').classList.remove('show');
+    showAdminDash();
+  } else {
+    document.getElementById('login-err').classList.add('show');
+    document.getElementById('admin-pw').value='';
+  }
+}
+
+function showAdminDash() {
+  document.getElementById('admin-login').style.display='none';
+  document.getElementById('admin-dash').classList.add('show');
+  renderAdminMatches();
+  loadGSConfigUI();
+}
+
+function switchATab(id, el) {
+  document.querySelectorAll('.atab').forEach(t=>t.classList.remove('on'));
+  el.classList.add('on');
+  document.querySelectorAll('.admin-section').forEach(s=>s.classList.remove('on'));
+  document.getElementById('at-'+id).classList.add('on');
+  if(id==='results') renderAdminMatches();
+}
+
+function renderAdminMatches() {
+  const cfg = getGSConfig();
+  const gsEl = document.getElementById('gs-status');
+  if(cfg.apiKey && cfg.sheetId) {
+    gsEl.className='gs-status ok';
+    gsEl.textContent='✅ Google Sheets connected. Results sync to cloud on save.';
+  } else {
+    gsEl.className='gs-status';
+    gsEl.textContent='💾 localStorage only. Add Google Sheets config in Settings to enable cloud sync.';
+  }
+
+  document.getElementById('admin-match-list').innerHTML = S.matches.map(m => `
+    <div class="admin-match-row">
+      <div>
+        <div class="amr-match">${m.flagA} ${m.nameA} vs ${m.nameB} ${m.flagB}</div>
+        <div style="font-family:var(--font-cond);font-size:12px;color:var(--off);margin-top:2px;">${m.date} · ${m.venue}</div>
+      </div>
+      <div class="amr-inputs">
+        <input class="score-in" type="number" min="0" value="${m.scoreA??''}" placeholder="A" id="sa-${m.id}">
+        <span style="color:var(--off);font-family:var(--font-cond);font-weight:700;">–</span>
+        <input class="score-in" type="number" min="0" value="${m.scoreB??''}" placeholder="B" id="sb-${m.id}">
+        <select id="st-${m.id}" style="background:rgba(255,255,255,.06);border:1px solid var(--border);color:var(--white);font-family:var(--font-cond);font-size:13px;padding:5px 8px;border-radius:5px;cursor:pointer;">
+          <option value="upcoming" ${m.status==='upcoming'?'selected':''}>Upcoming</option>
+          <option value="live"     ${m.status==='live'?'selected':''}>Live</option>
+          <option value="complete" ${m.status==='complete'?'selected':''}>Complete</option>
+        </select>
+        <button class="save-btn" onclick="saveResult(${m.id})">Save</button>
+      </div>
+    </div>`).join('');
+}
+
+function saveResult(matchId) {
+  const idx = S.matches.findIndex(m => m.id===matchId);
+  if(idx<0) return;
+  const sA = parseInt(document.getElementById('sa-'+matchId).value);
+  const sB = parseInt(document.getElementById('sb-'+matchId).value);
+  const st = document.getElementById('st-'+matchId).value;
+  if(!isNaN(sA)) S.matches[idx].scoreA = sA;
+  if(!isNaN(sB)) S.matches[idx].scoreB = sB;
+  S.matches[idx].status = st;
+
+  // Settle bets for this match if complete
+  if(st==='complete') settleBets(matchId, sA, sB);
+
+  save();
+  toast('✓ Saved',`${S.matches[idx].nameA} vs ${S.matches[idx].nameB} updated.`);
+  if(currentFilter) renderMatches(currentFilter);
+  // sync to Sheets — Apps Script will also settle bets server-side
+  syncResultToSheets(matchId, sA, sB, st).then(r => {
+    if(r?.ok) toast('✓ Synced to Sheets', r.message || 'Result saved to Google Sheet.');
+    else if(r?.error) console.warn('Sheet sync failed:', r.error);
+  });
+}
+
+function settleBets(matchId, sA, sB) {
+  const m = S.matches.find(x => x.id===matchId);
+  S.bets.forEach(b => {
+    if(b.matchId !== matchId || b.outcome !== 'pending') return;
+    const correct = checkPredictions(b.predictions, m, sA, sB);
+    b.outcome = correct ? 'win' : 'loss';
+    if(correct) S.wallet += b.wager * 2;
+  });
+  updateWalletUI();
+}
+
+function checkPredictions(preds, m, sA, sB) {
+  // Q1: match result
+  const q1 = preds.q1;
+  const actualResult = sA > sB ? 'Home Win' : sB > sA ? 'Away Win' : 'Draw';
+  if(q1 && q1 !== actualResult) return false;
+  // Q3: goals over/under (simplified check)
+  const totalGoals = (sA||0) + (sB||0);
+  const q3 = preds.q3;
+  if(q3==='0–1 Goals' && totalGoals>1) return false;
+  if(q3==='2–3 Goals' && (totalGoals<2||totalGoals>3)) return false;
+  if(q3==='4+ Goals' && totalGoals<4) return false;
+  // Q4: clean sheet
+  const q4 = preds.q4;
+  const hasCleanSheet = sA===0 || sB===0;
+  if(q4==='Yes' && !hasCleanSheet) return false;
+  if(q4==='No' && hasCleanSheet) return false;
+  return true;
+}
+
+function addFixture() {
+  const a = document.getElementById('a-teamA').value.trim();
+  const b = document.getElementById('a-teamB').value.trim();
+  const d = document.getElementById('a-date').value.trim();
+  const ph = document.getElementById('a-phase').value;
+  const v = document.getElementById('a-venue').value.trim();
+  if(!a||!b){ toast('Missing fields','Enter both team names.'); return; }
+  const newId = Math.max(...S.matches.map(m=>m.id), 0)+1;
+  S.matches.push({ id:newId, phase:ph, group:'?', flagA:'⚽', flagB:'⚽', nameA:a, nameB:b, date:d||'TBD', venue:v||'TBD', status:'upcoming' });
+  save();
+  toast('✓ Fixture Added',`${a} vs ${b} added.`);
+  renderAdminMatches();
+  syncFixtureToSheets({ nameA:a, nameB:b, date:d||'TBD', phase:ph, venue:v||'TBD' });
+}
+
+function loadGSConfigUI() {
+  const cfg = S.gsConfig || {};
+  document.getElementById('gs-asurl').value = cfg.asUrl || '';
+}
+
+async function saveGSConfig() {
+  const url = document.getElementById('gs-asurl').value.trim();
+  S.gsConfig = { asUrl: url };
+  save();
+  const gsEl = document.getElementById('gs-status');
+  gsEl.textContent = '🔄 Testing connection...';
+  gsEl.className = 'gs-status';
+  const result = await testSheetsConnection(url);
+  if(result.ok){
+    gsEl.className='gs-status ok';
+    gsEl.textContent='✅ ' + result.msg;
+    toast('Connected ✓', result.msg);
+  } else {
+    gsEl.className='gs-status err';
+    gsEl.textContent='❌ ' + result.msg;
+    toast('Connection Failed', result.msg);
+  }
+}
+
+function resetAllData() {
+  if(!confirm('⚠ This will erase ALL local data including bets and wallet. Are you sure?')) return;
+  localStorage.removeItem(LS_KEY);
+  S = initData();
+  updateWalletUI();
+  renderMatches('all');
+  toast('Data Reset','All local data cleared.');
+  closeAdmin();
+}
+
+// ══════════════════════════════════════════
+// TOAST
+// ══════════════════════════════════════════
+let toastTimer;
+function toast(title, msg) {
+  const el = document.getElementById('toast');
+  document.getElementById('toast-t').textContent = title;
+  document.getElementById('toast-m').textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 3200);
+}
+
+// ══════════════════════════════════════════
+// INIT
+// ══════════════════════════════════════════
+updateWalletUI();
+renderMatches('all');
+</script>
+</body>
+</html>
