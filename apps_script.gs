@@ -270,14 +270,16 @@ function getConfig() {
 
 /**
  * resetData
- * Admin only. Wipes Predictions, Leaderboard, and Audit tabs
- * and rewrites their header rows. Fixtures and Config are preserved.
+ * Admin only — TESTING PHASE: wipes ALL tabs (Fixtures, Predictions,
+ * Leaderboard, Audit, Config) and rewrites their header rows.
  */
 function resetData() {
   const headers = {
+    'Fixtures':    ['Match_ID','Date','Phase','Group','Team_A','Team_B','Flag_A','Flag_B','Venue','Score_A','Score_B','Status'],
     'Predictions': ['Timestamp','Player_ID','Player_Name','Match_ID','Q1','Q2','Q3','Q4','Wager','Outcome'],
     'Leaderboard': ['Player_ID','Player_Name','Wins','Losses','Pending','Points_Earned','Points_Lost'],
-    'Audit':       ['Timestamp','Action','Detail']
+    'Audit':       ['Timestamp','Action','Detail'],
+    'Config':      ['Key','Value']
   };
   Object.keys(headers).forEach(name => {
     const sheet = getSheet(name);
@@ -285,5 +287,5 @@ function resetData() {
     sheet.appendRow(headers[name]);
   });
   audit('resetData', { tabs: Object.keys(headers) });
-  return { ok: true, message: 'Sheets reset (Predictions, Leaderboard, Audit).' };
+  return { ok: true, message: 'All sheets reset (Fixtures, Predictions, Leaderboard, Audit, Config).' };
 }
