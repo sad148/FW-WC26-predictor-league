@@ -504,8 +504,9 @@ body::before{
             Tab 4: <code style="color:var(--mex2);">Leaderboard</code> — Auto-computed via SUMIF/VLOOKUP scripts<br>
             Tab 5: <code style="color:var(--mex2);">Audit</code> — Timestamped log of all actions
           </div>
-          <div style="margin-top:1rem;">
+          <div style="margin-top:1rem;display:flex;gap:8px;flex-wrap:wrap;">
             <button class="save-btn" onclick="resetAllData()">⚠ Reset All Local Data</button>
+            <button class="save-btn" style="background:rgba(230,29,37,.15);border-color:var(--can);color:var(--can2);" onclick="resetSheetsData()">⚠ Reset Sheets Data</button>
           </div>
         </div>
       </div>
@@ -542,16 +543,37 @@ const DEFAULT_MATCHES = [
   {id:8,phase:'knockout',group:'R16',flagA:'🇮🇹',flagB:'🇺🇾',nameA:'Italy',nameB:'Uruguay',date:'Jun 29',venue:'Gillette Stadium, Boston',status:'upcoming'},
 ];
 
-const DEFAULT_PLAYERS = [
-  {name:'Rahul K.',   av:'RK', color:'#4A90D9', wins:8, losses:2, draws:1, wallet:134, pts:67},
-  {name:'Priya S.',   av:'PS', color:'#E61D25', wins:7, losses:3, draws:2, wallet:118, pts:61},
-  {name:'Saurabh D.', av:'SD', color:'#C9A84C', wins:6, losses:4, draws:1, wallet:100, pts:54, isMe:true},
-  {name:'Arjun M.',   av:'AM', color:'#00a86b', wins:5, losses:5, draws:1, wallet:95,  pts:48},
-  {name:'Neha R.',    av:'NR', color:'#9B59B6', wins:4, losses:5, draws:3, wallet:88,  pts:44},
-  {name:'Vikram T.',  av:'VT', color:'#1ABC9C', wins:3, losses:6, draws:2, wallet:72,  pts:38},
-  {name:'Ananya P.',  av:'AP', color:'#E67E22', wins:2, losses:7, draws:2, wallet:65,  pts:31},
-  {name:'Deepak J.',  av:'DJ', color:'#7F8C8D', wins:1, losses:9, draws:1, wallet:48,  pts:22},
-];
+// Avatar colors used when computing player entries dynamically.
+const AV_COLORS = ['#4A90D9','#E61D25','#C9A84C','#00a86b','#9B59B6','#1ABC9C','#E67E22','#7F8C8D'];
+
+function initialsOf(name) {
+  return name.trim().split(/\s+/).map(s=>s[0]||'').join('').slice(0,2).toUpperCase() || '??';
+}
+
+function colorFor(name) {
+  let h = 0;
+  for (let i=0;i<name.length;i++) h = (h*31 + name.charCodeAt(i)) >>> 0;
+  return AV_COLORS[h % AV_COLORS.length];
+}
+
+// Build the "me" entry from actual local state (wallet + bets), not a hardcoded row.
+function buildMePlayer() {
+  const name = (S.me && S.me.name) || 'You';
+  const wins   = S.bets.filter(b => b.outcome === 'win').length;
+  const losses = S.bets.filter(b => b.outcome === 'loss').length;
+  const draws  = S.bets.filter(b => b.outcome === 'draw').length;
+  // Points: sum of winning wagers (doubled = profit equals wager amount).
+  const pts = S.bets.filter(b => b.outcome === 'win').reduce((s,b)=>s+b.wager,0);
+  return {
+    name,
+    av: initialsOf(name),
+    color: colorFor(name),
+    wins, losses, draws,
+    wallet: S.wallet,
+    pts,
+    isMe: true,
+  };
+}
 
 // ══════════════════════════════════════════
 // LOCALSTORAGE HELPERS
@@ -584,8 +606,11 @@ function initData() {
     predictions: {},
     wagers: {},
     matches: DEFAULT_MATCHES,
-    players: DEFAULT_PLAYERS,
-    gsConfig: { apiKey:'', sheetId:'' }
+    // Other players come from the Apps Script Leaderboard tab; "me" is computed
+    // from local state in renderLB(). No mock rows.
+    otherPlayers: [],
+    me: { name: '' },
+    gsConfig: { asUrl:'' }
   };
   writeData(fresh);
   return fresh;
@@ -695,7 +720,7 @@ function save() { writeData(S); }
 function updateWalletUI() {
   document.getElementById('wlt').textContent = S.wallet;
   document.getElementById('hs-wallet').textContent = S.wallet;
-  document.getElementById('hs-players').textContent = S.players.length;
+  document.getElementById('hs-players').textContent = (S.otherPlayers?.length || 0) + 1;
 }
 
 // ══════════════════════════════════════════
@@ -827,7 +852,7 @@ function submitBet(matchId) {
   updateWalletUI();
   toast('Bet Placed! 🎯', `${wager} pts wagered on ${m.nameA} vs ${m.nameB}`);
   // sync to Sheets in background (non-blocking)
-  syncBetToSheets(S.bets[S.bets.length-1], S.players.find(p=>p.isMe)?.name || 'Player');
+  syncBetToSheets(S.bets[S.bets.length-1], S.me?.name || 'Player');
 
   // Re-render just this card area
   const sbtn = document.getElementById('sbtn-'+matchId);
@@ -843,13 +868,36 @@ function submitBet(matchId) {
 // ══════════════════════════════════════════
 // LEADERBOARD
 // ══════════════════════════════════════════
-function renderLB() {
-  // Update me row with current wallet
-  const meIdx = S.players.findIndex(p => p.isMe);
-  if(meIdx>=0) S.players[meIdx].wallet = S.wallet;
+async function renderLB() {
+  // Pull the latest other-player rows from the Apps Script Leaderboard tab
+  // (if configured). Falls back silently to whatever we have cached locally.
+  if (getASUrl()) {
+    const res = await callAS('getLeaderboard');
+    if (res && res.ok && Array.isArray(res.players)) {
+      S.otherPlayers = res.players.map(p => ({
+        name:   p.name || 'Player',
+        av:     initialsOf(p.name || 'Player'),
+        color:  colorFor(p.name || 'Player'),
+        wins:   Number(p.wins)   || 0,
+        losses: Number(p.losses) || 0,
+        draws:  Number(p.draws)  || 0,
+        wallet: Number(p.wallet) || 0,
+        pts:    Number(p.pts)    || 0,
+      }));
+      save();
+    }
+  }
 
-  const sorted = [...S.players].sort((a,b) => b.pts - a.pts || b.wallet - a.wallet);
-  document.getElementById('lb-body').innerHTML = sorted.map((p,i) => {
+  const rows = [buildMePlayer(), ...(S.otherPlayers || [])]
+    .sort((a,b) => b.pts - a.pts || b.wallet - a.wallet);
+
+  const body = document.getElementById('lb-body');
+  if (!rows.length) {
+    body.innerHTML = `<tr><td colspan="5"><div class="empty-state"><div class="ei">🏆</div><h3>No players yet</h3><p>Place a bet or invite friends to your league.</p></div></td></tr>`;
+    return;
+  }
+
+  body.innerHTML = rows.map((p,i) => {
     const rc = i===0?'r1':i===1?'r2':i===2?'r3':'rn';
     const me = p.isMe ? 'me-row' : '';
     return `<tr class="${me}">
@@ -909,6 +957,8 @@ function joinLeague() {
   const c = document.getElementById('join-code').value.trim();
   if(!n||!c){ toast('Missing fields','Enter your name and invite code.'); return; }
   if(!/^WC26-/i.test(c)){ toast('Invalid code','Invite codes start with WC26-'); return; }
+  S.me = { name: n };
+  save();
   toast('🎉 Joined!',`Welcome ${n}! You're in the league.`);
 }
 
@@ -1103,6 +1153,24 @@ function resetAllData() {
   renderMatches('all');
   toast('Data Reset','All local data cleared.');
   closeAdmin();
+}
+
+async function resetSheetsData() {
+  if(!getASUrl()){ toast('Not configured','Set the Apps Script URL first.'); return; }
+  if(!confirm('⚠ This will wipe Predictions, Leaderboard, and Audit tabs in the connected Google Sheet for ALL players. Continue?')) return;
+  const gsEl = document.getElementById('gs-status');
+  gsEl.className = 'gs-status';
+  gsEl.textContent = '🔄 Resetting Sheets data...';
+  const res = await callAS('resetData');
+  if(res?.ok){
+    gsEl.className = 'gs-status ok';
+    gsEl.textContent = '✅ Sheets data reset. ' + (res.message || '');
+    toast('Sheets Reset', res.message || 'Cloud data cleared.');
+  } else {
+    gsEl.className = 'gs-status err';
+    gsEl.textContent = '❌ ' + (res?.error || 'Reset failed.');
+    toast('Reset Failed', res?.error || 'Apps Script did not confirm reset.');
+  }
 }
 
 // ══════════════════════════════════════════
