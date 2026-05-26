@@ -50,6 +50,8 @@ function doPost(e) {
       getLeaderboard: () => getLeaderboard(),
       getMyBets:      () => getMyBets(data),
       getConfig:      () => getConfig(),
+      registerPlayer: () => registerPlayer(data),
+      loginPlayer:    () => loginPlayer(data),
       resetData:      () => resetData(),
       ping:           () => ({ ok: true, message: 'pong' })
     };
@@ -78,6 +80,7 @@ function getSheet(name) {
       'Fixtures':    ['Match_ID','Date','Phase','Group','Team_A','Team_B','Flag_A','Flag_B','Venue','Score_A','Score_B','Status'],
       'Predictions': ['Timestamp','Player_ID','Player_Name','Match_ID','Q1','Q2','Q3','Q4','Wager','Outcome'],
       'Leaderboard': ['Player_ID','Player_Name','Wins','Losses','Pending','Points_Earned','Points_Lost'],
+      'Players':     ['Player_ID','Name','Salt','Password_Hash','Created_At'],
       'Config':      ['Key','Value'],
       'Audit':       ['Timestamp','Action','Detail']
     };
@@ -258,6 +261,72 @@ function getMyBets(d) {
 }
 
 /**
+ * registerPlayer
+ * Creates a new player row. Name must be unique (case-insensitive).
+ * Password is hashed with a per-player salt.
+ */
+function registerPlayer(d) {
+  const name = String(d.name || '').trim();
+  const pwd  = String(d.password || '');
+  if (!name)            return { ok: false, error: 'Name is required.' };
+  if (pwd.length < 4)   return { ok: false, error: 'Password must be at least 4 characters.' };
+
+  const sheet = getSheet('Players');
+  const rows = sheet.getDataRange().getValues();
+  const nameLower = name.toLowerCase();
+  for (let i = 1; i < rows.length; i++) {
+    if (String(rows[i][1] || '').toLowerCase() === nameLower) {
+      return { ok: false, error: 'Name already taken. Log in instead.' };
+    }
+  }
+
+  const playerId = 'player_' + nameLower.replace(/\s+/g, '_');
+  const salt = Utilities.getUuid();
+  const hash = hashPassword_(pwd, salt);
+  sheet.appendRow([playerId, name, salt, hash, new Date().toISOString()]);
+  audit('registerPlayer', { name, playerId });
+  return { ok: true, playerId, name };
+}
+
+/**
+ * loginPlayer
+ * Verifies name+password against Players tab. Returns the playerId on success.
+ */
+function loginPlayer(d) {
+  const name = String(d.name || '').trim();
+  const pwd  = String(d.password || '');
+  if (!name || !pwd) return { ok: false, error: 'Name and password are required.' };
+
+  const rows = getSheet('Players').getDataRange().getValues();
+  const nameLower = name.toLowerCase();
+  for (let i = 1; i < rows.length; i++) {
+    const [playerId, rowName, salt, hash] = rows[i];
+    if (String(rowName || '').toLowerCase() === nameLower) {
+      if (hashPassword_(pwd, salt) === hash) {
+        audit('loginPlayer', { name, playerId });
+        return { ok: true, playerId, name: rowName };
+      }
+      return { ok: false, error: 'Wrong password.' };
+    }
+  }
+  return { ok: false, error: 'No account with that name. Register first.' };
+}
+
+/**
+ * hashPassword_
+ * SHA-256 of (salt + ':' + password), returned as lowercase hex.
+ * Not bcrypt — sufficient for a private hobby league, not for high-value auth.
+ */
+function hashPassword_(password, salt) {
+  const bytes = Utilities.computeDigest(
+    Utilities.DigestAlgorithm.SHA_256,
+    salt + ':' + password,
+    Utilities.Charset.UTF_8
+  );
+  return bytes.map(b => ('0' + (b & 0xff).toString(16)).slice(-2)).join('');
+}
+
+/**
  * getConfig
  * Returns Config tab key-value pairs.
  */
@@ -278,6 +347,7 @@ function resetData() {
     'Fixtures':    ['Match_ID','Date','Phase','Group','Team_A','Team_B','Flag_A','Flag_B','Venue','Score_A','Score_B','Status'],
     'Predictions': ['Timestamp','Player_ID','Player_Name','Match_ID','Q1','Q2','Q3','Q4','Wager','Outcome'],
     'Leaderboard': ['Player_ID','Player_Name','Wins','Losses','Pending','Points_Earned','Points_Lost'],
+    'Players':     ['Player_ID','Name','Salt','Password_Hash','Created_At'],
     'Audit':       ['Timestamp','Action','Detail'],
     'Config':      ['Key','Value']
   };
@@ -287,5 +357,5 @@ function resetData() {
     sheet.appendRow(headers[name]);
   });
   audit('resetData', { tabs: Object.keys(headers) });
-  return { ok: true, message: 'All sheets reset (Fixtures, Predictions, Leaderboard, Audit, Config).' };
+  return { ok: true, message: 'All sheets reset (Fixtures, Predictions, Leaderboard, Players, Audit, Config).' };
 }

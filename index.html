@@ -275,7 +275,7 @@ body::before{
       <button class="nav-btn" onclick="go('matches')">Matches</button>
       <button class="nav-btn" onclick="go('leaderboard')">Leaderboard</button>
       <button class="nav-btn" onclick="go('mybets')">My Bets</button>
-      <button class="nav-btn" onclick="go('league')">League</button>
+      <button class="nav-btn" onclick="go('league')">Account</button>
     </nav>
     <div class="wallet-chip">🏅 <b id="wlt">100</b> pts</div>
     <div class="admin-chip" onclick="openAdmin()">⚙ Admin</div>
@@ -300,7 +300,7 @@ body::before{
       <span class="flag-pill fp-usa">🇺🇸 USA</span>
     </div>
     <div class="hero-kpi">
-      <div class="kpi"><div class="n" id="hs-matches">48</div><div class="l">Matches</div></div>
+      <div class="kpi"><div class="n" id="hs-matches">0</div><div class="l">Matches</div></div>
       <div class="kpi"><div class="n" id="hs-players">0</div><div class="l">Players</div></div>
       <div class="kpi"><div class="n" id="hs-wallet">100</div><div class="l">Your Pts</div></div>
     </div>
@@ -382,29 +382,31 @@ body::before{
   </div>
 </section>
 
-<!-- ═══════════════ LEAGUE ═══════════════ -->
+<!-- ═══════════════ ACCOUNT ═══════════════ -->
 <section class="sec" id="sec-league">
-  <div class="sh"><div class="sh-title">LEAGUE</div><div class="sh-sub">Join or create a private league</div></div>
-  <div class="league-grid">
-    <div class="lform">
-      <div class="lform-title" style="color:var(--usa2)">JOIN A LEAGUE</div>
-      <div class="fg"><label class="flabel">Your Name</label><input class="finput" id="join-name" type="text" placeholder="e.g. Saurabh D."></div>
-      <div class="fg"><label class="flabel">Invite Code</label><input class="finput" id="join-code" type="text" placeholder="WC26-XXXX" style="letter-spacing:2px;font-family:'Barlow Condensed',monospace;font-weight:700;"></div>
-      <button class="btn-gold" style="width:100%;margin-top:4px;" onclick="joinLeague()">Join League →</button>
+  <div class="sh"><div class="sh-title">ACCOUNT</div><div class="sh-sub">Sign in to place bets and join the league</div></div>
+
+  <!-- Logged-out view: Login / Register tabs -->
+  <div id="auth-panel">
+    <div class="phase-tabs" style="margin-bottom:1rem;">
+      <button class="ptab on" id="atab-login" onclick="switchAuthTab('login')">Login</button>
+      <button class="ptab" id="atab-register" onclick="switchAuthTab('register')">Register</button>
     </div>
-    <div class="lform">
-      <div class="lform-title" style="color:var(--mex2)">CREATE A LEAGUE</div>
-      <div class="fg"><label class="flabel">League Name</label><input class="finput" id="cr-lname" type="text" placeholder="e.g. Office Legends"></div>
-      <div class="fg"><label class="flabel">Admin Name</label><input class="finput" id="cr-aname" type="text" placeholder="Your name"></div>
-      <button class="btn-gold" style="width:100%;margin-top:4px;background:linear-gradient(135deg,var(--mex2),var(--mex));" onclick="createLeague()">Create League →</button>
+    <div class="lform" style="max-width:440px;">
+      <div class="lform-title" id="auth-title" style="color:var(--gold)">LOGIN</div>
+      <div class="fg"><label class="flabel">Name</label><input class="finput" id="auth-name" type="text" placeholder="Your display name" autocomplete="username"></div>
+      <div class="fg"><label class="flabel">Password</label><input class="finput" id="auth-pwd" type="password" placeholder="At least 4 characters" autocomplete="current-password" onkeydown="if(event.key==='Enter')submitAuth()"></div>
+      <button class="btn-gold" id="auth-submit" style="width:100%;margin-top:4px;" onclick="submitAuth()">Login →</button>
     </div>
   </div>
-  <div class="league-info" id="league-info">
-    <div style="font-family:var(--font-display);font-size:22px;color:var(--mex2);margin-bottom:.5rem;" id="li-name"></div>
-    <div style="font-family:var(--font-cond);font-size:13px;color:var(--off);margin-bottom:12px;">Share this code with your friends:</div>
-    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-      <div class="code-display" id="li-code"></div>
-      <button class="btn-outline" style="font-size:14px;padding:9px 16px;" onclick="copyCode()">Copy Code</button>
+
+  <!-- Logged-in view -->
+  <div id="auth-logged-in" style="display:none;">
+    <div class="lform" style="max-width:440px;">
+      <div class="lform-title" style="color:var(--mex2)">SIGNED IN</div>
+      <div style="font-size:18px;font-family:var(--font-cond);margin-bottom:.6rem;">Welcome, <strong id="auth-current-name" style="color:var(--gold)"></strong></div>
+      <div style="color:var(--off);font-size:13px;line-height:1.6;margin-bottom:1.25rem;">Head to Matches to place bets, or My Bets to see your history.</div>
+      <button class="btn-outline" style="width:100%;" onclick="logout()">Log out</button>
     </div>
   </div>
 </section>
@@ -431,7 +433,7 @@ body::before{
   </button>
   <button class="mob-btn" id="mb-league" onclick="go('league')">
     <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-    League
+    Account
   </button>
 </nav>
 
@@ -464,7 +466,7 @@ body::before{
 
         <!-- Results Tab -->
         <div class="admin-section on" id="at-results">
-          <div class="gs-status" id="gs-status">💾 Data stored in localStorage. Configure Google Sheets API key below to enable cloud sync.</div>
+          <div class="gs-status" id="gs-status">☁️ All game data lives in the connected Google Sheet. Configure the Apps Script URL in Settings if you haven't already.</div>
           <div id="admin-match-list"></div>
         </div>
 
@@ -568,9 +570,6 @@ function buildMePlayer() {
   };
 }
 
-function playerIdFor(name) {
-  return 'player_' + String(name || '').trim().toLowerCase().replace(/\s+/g,'_');
-}
 
 // ══════════════════════════════════════════
 // LOCALSTORAGE — identity + GS URL ONLY
@@ -594,7 +593,7 @@ function writeData() {
 function initData() {
   const stored = readData() || {};
   return {
-    me:       stored.me       || { name: '' },
+    me:       stored.me       || { name: '', playerId: '' },
     gsConfig: stored.gsConfig || { asUrl: '' },
     // In-memory drafts (lost on refresh — intentional, they're not bets yet).
     drafts:   { predictions: {}, wagers: {} },
@@ -680,8 +679,8 @@ async function refreshMatches() {
 
 /** Fetch this player's bets; derive wallet using the Apps Script's formula. */
 async function refreshMyBets() {
-  if (!S.me?.name) { S.cache.bets = []; S.cache.wallet = 100; return; }
-  const res = await callAS('getMyBets', { playerId: playerIdFor(S.me.name) });
+  if (!S.me?.playerId) { S.cache.bets = []; S.cache.wallet = 100; return; }
+  const res = await callAS('getMyBets', { playerId: S.me.playerId });
   S.cache.bets = res.bets || [];
   // wallet = 100 + sum(win wagers) - sum(loss wagers); pending unchanged.
   S.cache.wallet = S.cache.bets.reduce((w, b) => {
@@ -694,7 +693,7 @@ async function refreshMyBets() {
 async function refreshLeaderboard() {
   const res = await callAS('getLeaderboard');
   S.cache.otherPlayers = (res.leaderboard || [])
-    .filter(p => p.playerId !== playerIdFor(S.me?.name || ''))
+    .filter(p => p.playerId !== S.me?.playerId)
     .map(p => ({
       name:   p.playerName || 'Player',
       av:     initialsOf(p.playerName || 'Player'),
@@ -722,7 +721,8 @@ function save() { writeData(); }
 function updateWalletUI() {
   document.getElementById('wlt').textContent       = S.cache.wallet;
   document.getElementById('hs-wallet').textContent = S.cache.wallet;
-  document.getElementById('hs-players').textContent = (S.cache.otherPlayers?.length || 0) + (S.me?.name ? 1 : 0);
+  document.getElementById('hs-players').textContent = (S.cache.otherPlayers?.length || 0) + (S.me?.playerId ? 1 : 0);
+  document.getElementById('hs-matches').textContent = S.cache.matches.length;
 }
 
 // ══════════════════════════════════════════
@@ -858,7 +858,7 @@ function setWager(matchId, val) {
 }
 
 async function submitBet(matchId) {
-  if (!S.me?.name) { toast('Set your name', 'Go to League → Join to set your player name first.'); return; }
+  if (!S.me?.playerId) { toast('Sign in first', 'Go to Account to log in or register.'); return; }
 
   const m = S.cache.matches.find(x => String(x.id) === String(matchId));
   const preds = S.drafts.predictions[matchId] || {};
@@ -874,7 +874,7 @@ async function submitBet(matchId) {
 
   try {
     await callAS('saveBet', {
-      playerId:   playerIdFor(S.me.name),
+      playerId:   S.me.playerId,
       playerName: S.me.name,
       matchId:    matchId,
       q1: preds.q1 || '', q2: preds.q2 || '', q3: preds.q3 || '', q4: preds.q4 || '',
@@ -896,7 +896,7 @@ async function submitBet(matchId) {
 // ══════════════════════════════════════════
 function renderLB() {
   const others = S.cache.otherPlayers || [];
-  const meRow = S.me?.name ? [buildMePlayer()] : [];
+  const meRow = S.me?.playerId ? [buildMePlayer()] : [];
   const rows = [...meRow, ...others].sort((a,b) => b.pts - a.pts || b.wallet - a.wallet);
 
   const body = document.getElementById('lb-body');
@@ -964,33 +964,66 @@ function renderBets() {
 }
 
 // ══════════════════════════════════════════
-// LEAGUE
+// ACCOUNT — login / register via Google Sheets Players tab.
 // ══════════════════════════════════════════
-function joinLeague() {
-  const n = document.getElementById('join-name').value.trim();
-  const c = document.getElementById('join-code').value.trim();
-  if(!n||!c){ toast('Missing fields','Enter your name and invite code.'); return; }
-  if(!/^WC26-/i.test(c)){ toast('Invalid code','Invite codes start with WC26-'); return; }
-  S.me = { name: n };
+let authMode = 'login';
+
+function switchAuthTab(mode) {
+  authMode = mode;
+  document.getElementById('atab-login').classList.toggle('on', mode === 'login');
+  document.getElementById('atab-register').classList.toggle('on', mode === 'register');
+  document.getElementById('auth-title').textContent  = mode === 'login' ? 'LOGIN' : 'REGISTER';
+  document.getElementById('auth-submit').textContent = mode === 'login' ? 'Login →' : 'Register →';
+  document.getElementById('auth-pwd').setAttribute('autocomplete', mode === 'login' ? 'current-password' : 'new-password');
+}
+
+async function submitAuth() {
+  const name = document.getElementById('auth-name').value.trim();
+  const pwd  = document.getElementById('auth-pwd').value;
+  if (!name || !pwd) { toast('Missing fields','Enter name and password.'); return; }
+
+  const btn = document.getElementById('auth-submit');
+  const originalLabel = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = authMode === 'login' ? 'Logging in…' : 'Registering…';
+
+  try {
+    const action = authMode === 'login' ? 'loginPlayer' : 'registerPlayer';
+    const res = await callAS(action, { name, password: pwd });
+    S.me = { name: res.name, playerId: res.playerId };
+    save();
+    document.getElementById('auth-pwd').value = '';
+    document.getElementById('auth-name').value = '';
+    renderAuthState();
+    toast(authMode === 'login' ? '✓ Logged in' : '✓ Account created', `Welcome, ${res.name}!`);
+    // Refresh data with the new identity
+    await refreshMyBets();
+    await refreshLeaderboard();
+    updateWalletUI();
+  } catch (err) {
+    showError(err);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = originalLabel;
+  }
+}
+
+function logout() {
+  S.me = { name: '', playerId: '' };
   save();
-  toast('🎉 Joined!',`Welcome ${n}! You're in the league.`);
+  // Clear cached player-specific data so the UI doesn't show stale info.
+  S.cache.bets = [];
+  S.cache.wallet = 100;
+  updateWalletUI();
+  renderAuthState();
+  toast('Logged out','See you next time!');
 }
 
-function createLeague() {
-  const ln = document.getElementById('cr-lname').value.trim();
-  const an = document.getElementById('cr-aname').value.trim();
-  if(!ln||!an){ toast('Missing fields','Fill in all fields.'); return; }
-  const code = 'WC26-'+Math.random().toString(36).toUpperCase().substr(2,4);
-  document.getElementById('li-name').textContent = ln;
-  document.getElementById('li-code').textContent = code;
-  document.getElementById('league-info').style.display='block';
-  toast('🏆 League Created!','Share the code with your friends.');
-}
-
-function copyCode() {
-  const c = document.getElementById('li-code').textContent;
-  navigator.clipboard?.writeText(c).catch(()=>{});
-  toast('Copied!',`Code ${c} copied.`);
+function renderAuthState() {
+  const loggedIn = !!(S.me?.name && S.me?.playerId);
+  document.getElementById('auth-panel').style.display = loggedIn ? 'none' : 'block';
+  document.getElementById('auth-logged-in').style.display = loggedIn ? 'block' : 'none';
+  if (loggedIn) document.getElementById('auth-current-name').textContent = S.me.name;
 }
 
 // ══════════════════════════════════════════
@@ -1169,6 +1202,7 @@ function toast(title, msg) {
 // INIT — Pull live data from GS on load; nothing comes from localStorage.
 // ══════════════════════════════════════════
 (async () => {
+  renderAuthState();
   updateWalletUI();
   if (!getASUrl()) {
     document.getElementById('mg').innerHTML =
