@@ -529,19 +529,12 @@ body::before{
 // CONSTANTS & CONFIG
 // ══════════════════════════════════════════
 const ADMIN_PW = 'wc2026admin';   // hardcoded admin password
-const LS_KEY   = 'wc26_data';     // localStorage key
+const LS_KEY   = 'wc26_data';     // localStorage key — holds ONLY identity + GS URL.
 
-// Default match data (source of truth if nothing in localStorage)
-const DEFAULT_MATCHES = [
-  {id:1,phase:'group',group:'A',flagA:'🇲🇽',flagB:'🇺🇸',nameA:'Mexico',nameB:'USA',date:'Jun 11',venue:'AT&T Stadium, Dallas',status:'upcoming'},
-  {id:2,phase:'group',group:'A',flagA:'🇨🇦',flagB:'🇧🇷',nameA:'Canada',nameB:'Brazil',date:'Jun 12',venue:'MetLife Stadium, NJ',status:'upcoming'},
-  {id:3,phase:'group',group:'B',flagA:'🏴󠁧󠁢󠁥󠁮󠁧󠁿',flagB:'🇫🇷',nameA:'England',nameB:'France',date:'Jun 13',venue:'SoFi Stadium, LA',status:'live',scoreA:1,scoreB:1},
-  {id:4,phase:'group',group:'B',flagA:'🇩🇪',flagB:'🇯🇵',nameA:'Germany',nameB:'Japan',date:'Jun 13',venue:"Levi's Stadium, SF",status:'live',scoreA:2,scoreB:0},
-  {id:5,phase:'group',group:'C',flagA:'🇦🇷',flagB:'🇨🇱',nameA:'Argentina',nameB:'Chile',date:'Jun 9',venue:'Rose Bowl, LA',status:'complete',scoreA:3,scoreB:0},
-  {id:6,phase:'group',group:'C',flagA:'🇪🇸',flagB:'🇵🇹',nameA:'Spain',nameB:'Portugal',date:'Jun 10',venue:'NRG Stadium, Houston',status:'complete',scoreA:2,scoreB:2},
-  {id:7,phase:'knockout',group:'R16',flagA:'🇳🇱',flagB:'🇸🇳',nameA:'Netherlands',nameB:'Senegal',date:'Jun 28',venue:'Lincoln Financial, Philly',status:'upcoming'},
-  {id:8,phase:'knockout',group:'R16',flagA:'🇮🇹',flagB:'🇺🇾',nameA:'Italy',nameB:'Uruguay',date:'Jun 29',venue:'Gillette Stadium, Boston',status:'upcoming'},
-];
+// Game data (bets, wallet, matches, leaderboard) comes from Google Sheets via
+// the Apps Script Web App. localStorage holds only:
+//   - me:       { name, playerId }   identity, so we don't prompt every visit
+//   - gsConfig: { asUrl }            the Apps Script endpoint
 
 // Avatar colors used when computing player entries dynamically.
 const AV_COLORS = ['#4A90D9','#E61D25','#C9A84C','#00a86b','#9B59B6','#1ABC9C','#E67E22','#7F8C8D'];
@@ -556,64 +549,58 @@ function colorFor(name) {
   return AV_COLORS[h % AV_COLORS.length];
 }
 
-// Build the "me" entry from actual local state (wallet + bets), not a hardcoded row.
+// Build the "me" entry from fetched bets (no local game data).
 function buildMePlayer() {
-  const name = (S.me && S.me.name) || 'You';
-  const wins   = S.bets.filter(b => b.outcome === 'win').length;
-  const losses = S.bets.filter(b => b.outcome === 'loss').length;
-  const draws  = S.bets.filter(b => b.outcome === 'draw').length;
-  // Points: sum of winning wagers (doubled = profit equals wager amount).
-  const pts = S.bets.filter(b => b.outcome === 'win').reduce((s,b)=>s+b.wager,0);
+  const name = S.me?.name || 'You';
+  const bets = S.cache.bets;
+  const wins   = bets.filter(b => b.outcome === 'win').length;
+  const losses = bets.filter(b => b.outcome === 'loss').length;
+  const draws  = bets.filter(b => b.outcome === 'draw').length;
+  const pts    = bets.filter(b => b.outcome === 'win').reduce((s,b)=>s+b.wager,0);
   return {
     name,
     av: initialsOf(name),
     color: colorFor(name),
     wins, losses, draws,
-    wallet: S.wallet,
+    wallet: S.cache.wallet,
     pts,
     isMe: true,
   };
 }
 
+function playerIdFor(name) {
+  return 'player_' + String(name || '').trim().toLowerCase().replace(/\s+/g,'_');
+}
+
 // ══════════════════════════════════════════
-// LOCALSTORAGE HELPERS
-// (This is the data layer. Swap readData/writeData
-//  with Google Sheets API calls to upgrade to cloud.)
+// LOCALSTORAGE — identity + GS URL ONLY
+// All game data (bets, wallet, matches, leaderboard) is fetched live from GS.
 // ══════════════════════════════════════════
 function readData() {
   try {
     const raw = localStorage.getItem(LS_KEY);
     if (!raw) return null;
-    return JSON.parse(raw);
+    const d = JSON.parse(raw);
+    return { me: d.me || { name:'' }, gsConfig: d.gsConfig || { asUrl:'' } };
   } catch(e) { return null; }
 }
 
-function writeData(data) {
+function writeData() {
   try {
-    localStorage.setItem(LS_KEY, JSON.stringify(data));
-    // If Google Sheets is configured, push to cloud too
-    const cfg = getGSConfig();
-    if (cfg.apiKey && cfg.sheetId) pushToSheets(data, cfg);
+    localStorage.setItem(LS_KEY, JSON.stringify({ me: S.me, gsConfig: S.gsConfig }));
   } catch(e) { console.warn('Storage write failed', e); }
 }
 
 function initData() {
-  const existing = readData();
-  if (existing) return existing;
-  const fresh = {
-    wallet: 100,
-    bets: [],
-    predictions: {},
-    wagers: {},
-    matches: DEFAULT_MATCHES,
-    // Other players come from the Apps Script Leaderboard tab; "me" is computed
-    // from local state in renderLB(). No mock rows.
-    otherPlayers: [],
-    me: { name: '' },
-    gsConfig: { asUrl:'' }
+  const stored = readData() || {};
+  return {
+    me:       stored.me       || { name: '' },
+    gsConfig: stored.gsConfig || { asUrl: '' },
+    // In-memory drafts (lost on refresh — intentional, they're not bets yet).
+    drafts:   { predictions: {}, wagers: {} },
+    // In-memory cache populated by refresh*() functions from GS.
+    cache:    { matches: [], bets: [], otherPlayers: [], wallet: 100, loaded: false }
   };
-  writeData(fresh);
-  return fresh;
 }
 
 // ══════════════════════════════════════════
@@ -634,35 +621,29 @@ function initData() {
 // ══════════════════════════════════════════
 
 function getASUrl() {
-  const d = readData();
-  return d?.gsConfig?.asUrl || '';
+  return S.gsConfig?.asUrl || '';
 }
 
 /**
- * Core API call to Apps Script Web App
- * All reads and writes go through this one function.
+ * Core API call to Apps Script Web App. THROWS on failure.
+ * Callers handle the error (show toast, log) — there is no localStorage fallback.
  */
 async function callAS(action, data = {}) {
   const url = getASUrl();
-  if (!url) return { ok: false, error: 'Apps Script URL not configured. Go to Admin → Settings.' };
-  try {
-    const res = await fetch(url, {
-      method: 'POST',
-      // Apps Script requires text/plain for CORS to work without preflight
-      headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify({ action, data })
-    });
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    return await res.json();
-  } catch(e) {
-    console.warn('Apps Script call failed:', e);
-    return { ok: false, error: e.message };
-  }
+  if (!url) throw new Error('Apps Script URL not configured. Open Admin → Settings.');
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },  // text/plain avoids CORS preflight
+    body: JSON.stringify({ action, data })
+  });
+  if (!res.ok) throw new Error('HTTP ' + res.status + ' from Apps Script');
+  const json = await res.json();
+  if (!json || json.ok === false) throw new Error(json?.error || 'Apps Script returned ok=false');
+  return json;
 }
 
 async function testSheetsConnection(asUrl) {
   if (!asUrl) return { ok:false, msg:'Paste your Apps Script Web App URL first.' };
-  // doGet returns a health-check JSON
   try {
     const res = await fetch(asUrl);
     const json = await res.json();
@@ -673,60 +654,81 @@ async function testSheetsConnection(asUrl) {
   }
 }
 
-/**
- * Called after every bet submission.
- * Saves to localStorage immediately (optimistic),
- * then syncs to Sheets in the background.
- */
-async function syncBetToSheets(bet, playerName) {
-  const url = getASUrl();
-  if (!url) return; // no URL configured — localStorage only
-  const result = await callAS('saveBet', {
-    playerId:   'player_' + playerName.replace(/\s+/g,'_').toLowerCase(),
-    playerName,
-    matchId:    bet.matchId,
-    q1: bet.predictions.q1 || '',
-    q2: bet.predictions.q2 || '',
-    q3: bet.predictions.q3 || '',
-    q4: bet.predictions.q4 || '',
-    wager:      bet.wager,
-    timestamp:  bet.timestamp
-  });
-  if (!result.ok) console.warn('Bet sync to Sheets failed:', result.error);
+// ══════════════════════════════════════════
+// GS REFRESH FUNCTIONS — populate S.cache from sheets.
+// Each throws on failure. Callers wrap in showError().
+// ══════════════════════════════════════════
+
+/** Fetch fixtures and map sheet columns to the app's match shape. */
+async function refreshMatches() {
+  const res = await callAS('getFixtures');
+  S.cache.matches = (res.matches || []).map(r => ({
+    id:     r.Match_ID,
+    date:   r.Date,
+    phase:  r.Phase   || 'group',
+    group:  r.Group   || '',
+    nameA:  r.Team_A,
+    nameB:  r.Team_B,
+    flagA:  r.Flag_A  || '⚽',
+    flagB:  r.Flag_B  || '⚽',
+    venue:  r.Venue   || '',
+    scoreA: r.Score_A === '' ? null : Number(r.Score_A),
+    scoreB: r.Score_B === '' ? null : Number(r.Score_B),
+    status: r.Status  || 'upcoming'
+  }));
 }
 
-/**
- * Admin: push a result to Sheets.
- * Apps Script will also settle all pending bets server-side.
- */
-async function syncResultToSheets(matchId, scoreA, scoreB, status) {
-  return await callAS('saveResult', { matchId, scoreA, scoreB, status });
+/** Fetch this player's bets; derive wallet using the Apps Script's formula. */
+async function refreshMyBets() {
+  if (!S.me?.name) { S.cache.bets = []; S.cache.wallet = 100; return; }
+  const res = await callAS('getMyBets', { playerId: playerIdFor(S.me.name) });
+  S.cache.bets = res.bets || [];
+  // wallet = 100 + sum(win wagers) - sum(loss wagers); pending unchanged.
+  S.cache.wallet = S.cache.bets.reduce((w, b) => {
+    if (b.outcome === 'win')  return w + b.wager;
+    if (b.outcome === 'loss') return w - b.wager;
+    return w;
+  }, 100);
 }
 
-/**
- * Admin: push a new fixture to Sheets.
- */
-async function syncFixtureToSheets(fixture) {
-  return await callAS('addFixture', fixture);
+async function refreshLeaderboard() {
+  const res = await callAS('getLeaderboard');
+  S.cache.otherPlayers = (res.leaderboard || [])
+    .filter(p => p.playerId !== playerIdFor(S.me?.name || ''))
+    .map(p => ({
+      name:   p.playerName || 'Player',
+      av:     initialsOf(p.playerName || 'Player'),
+      color:  colorFor(p.playerName || 'Player'),
+      wins:   Number(p.wins)   || 0,
+      losses: Number(p.losses) || 0,
+      draws:  Number(p.draws)  || 0,
+      wallet: Number(p.wallet) || 0,
+      pts:    Number(p.pts)    || 0,
+    }));
+}
+
+function showError(err) {
+  console.warn(err);
+  toast('Error', err.message || String(err));
 }
 
 // ══════════════════════════════════════════
-// APP STATE (loaded from localStorage)
+// APP STATE — identity + config from localStorage; everything else in-memory.
 // ══════════════════════════════════════════
 let S = initData();
 
-function save() { writeData(S); }
+function save() { writeData(); }
 
 function updateWalletUI() {
-  document.getElementById('wlt').textContent = S.wallet;
-  document.getElementById('hs-wallet').textContent = S.wallet;
-  document.getElementById('hs-players').textContent = (S.otherPlayers?.length || 0) + 1;
+  document.getElementById('wlt').textContent       = S.cache.wallet;
+  document.getElementById('hs-wallet').textContent = S.cache.wallet;
+  document.getElementById('hs-players').textContent = (S.cache.otherPlayers?.length || 0) + (S.me?.name ? 1 : 0);
 }
 
 // ══════════════════════════════════════════
-// NAVIGATION
+// NAVIGATION — fetches fresh GS data on each screen change.
 // ══════════════════════════════════════════
-function go(id) {
+async function go(id) {
   document.querySelectorAll('.sec').forEach(s => s.classList.remove('on'));
   document.querySelector('#sec-'+id).classList.add('on');
   document.querySelectorAll('.nav-btn').forEach((b,i) => {
@@ -736,9 +738,29 @@ function go(id) {
   const mb = document.getElementById('mb-'+id);
   if(mb) mb.classList.add('on');
   window.scrollTo(0,0);
-  if(id==='leaderboard') renderLB();
-  if(id==='mybets') renderBets();
-  if(id==='matches') renderMatches('all');
+
+  try {
+    if (id==='matches') {
+      await refreshMatches();
+      await refreshMyBets();   // need bets to know which matches are already submitted
+      renderMatches(currentFilter);
+    } else if (id==='mybets') {
+      await refreshMatches();  // need fixtures to render team names on bet cards
+      await refreshMyBets();
+      updateWalletUI();
+      renderBets();
+    } else if (id==='leaderboard') {
+      await refreshLeaderboard();
+      await refreshMyBets();   // updates me-row pts/W-L
+      renderLB();
+    } else if (id==='home') {
+      await refreshMyBets();
+      await refreshLeaderboard();
+      updateWalletUI();
+    }
+  } catch (err) {
+    showError(err);
+  }
 }
 
 // ══════════════════════════════════════════
@@ -754,7 +776,7 @@ function filterM(f, el) {
 }
 
 function renderMatches(filter) {
-  const filtered = S.matches.filter(m => {
+  const filtered = S.cache.matches.filter(m => {
     if(filter==='all') return true;
     if(filter==='group') return m.phase==='group';
     if(filter==='knockout') return m.phase==='knockout';
@@ -765,7 +787,7 @@ function renderMatches(filter) {
 
   const g = document.getElementById('mg');
   if(!filtered.length) {
-    g.innerHTML = `<div class="empty-state"><div class="ei">📋</div><h3>No matches</h3><p>No matches in this filter.</p></div>`;
+    g.innerHTML = `<div class="empty-state"><div class="ei">📋</div><h3>No matches</h3><p>No matches in this filter. Admin can add fixtures via Admin → Manage Fixtures.</p></div>`;
     return;
   }
 
@@ -774,9 +796,9 @@ function renderMatches(filter) {
 
 function buildMatchCard(m) {
   const locked = m.status === 'complete';
-  const pred = S.predictions[m.id] || {};
-  const wager = S.wagers[m.id] || 2;
-  const submitted = S.bets.some(b => b.matchId === m.id);
+  const pred = S.drafts.predictions[m.id] || {};
+  const wager = S.drafts.wagers[m.id] || 2;
+  const submitted = S.cache.bets.some(b => String(b.matchId) === String(m.id));
 
   const stMap = { upcoming:'<span class="st st-up">UPCOMING</span>',
                   live:'<span class="st st-live">● LIVE</span>',
@@ -825,71 +847,57 @@ function buildMatchCard(m) {
 }
 
 function selPred(matchId, q, val, btn) {
-  if(!S.predictions[matchId]) S.predictions[matchId] = {};
-  S.predictions[matchId][q] = val;
+  if(!S.drafts.predictions[matchId]) S.drafts.predictions[matchId] = {};
+  S.drafts.predictions[matchId][q] = val;
   btn.closest('.popts').querySelectorAll('.popt').forEach(b => b.classList.remove('sel'));
   btn.classList.add('sel');
-  save();
 }
 
 function setWager(matchId, val) {
-  S.wagers[matchId] = Math.min(10, Math.max(1, parseInt(val)||1));
-  save();
+  S.drafts.wagers[matchId] = Math.min(10, Math.max(1, parseInt(val)||1));
 }
 
-function submitBet(matchId) {
-  const m = S.matches.find(x => x.id===matchId);
-  const preds = S.predictions[matchId] || {};
-  const wager = S.wagers[matchId] || 2;
+async function submitBet(matchId) {
+  if (!S.me?.name) { toast('Set your name', 'Go to League → Join to set your player name first.'); return; }
 
+  const m = S.cache.matches.find(x => String(x.id) === String(matchId));
+  const preds = S.drafts.predictions[matchId] || {};
+  const wager = S.drafts.wagers[matchId] || 2;
+
+  if (!m) { toast('Match not found', 'Could not locate this fixture.'); return; }
   if (!Object.keys(preds).length) { toast('No predictions!','Select at least one answer.'); return; }
-  if (wager > S.wallet) { toast('Not enough points!', `Need ${wager} pts, have ${S.wallet}.`); return; }
-  if (S.wallet <= 0) { toast('Bankrupt!', 'Your wallet is at 0. Read-only mode.'); return; }
+  if (wager > S.cache.wallet) { toast('Not enough points!', `Need ${wager} pts, have ${S.cache.wallet}.`); return; }
+  if (S.cache.wallet <= 0)    { toast('Bankrupt!', 'Your wallet is at 0. Read-only mode.'); return; }
 
-  S.wallet -= wager;
-  S.bets.push({ matchId, match:m, predictions:{...preds}, wager, outcome:'pending', timestamp:new Date().toISOString() });
-  save();
-  updateWalletUI();
-  toast('Bet Placed! 🎯', `${wager} pts wagered on ${m.nameA} vs ${m.nameB}`);
-  // sync to Sheets in background (non-blocking)
-  syncBetToSheets(S.bets[S.bets.length-1], S.me?.name || 'Player');
+  const btn = document.getElementById('sbtn-'+matchId);
+  if (btn) { btn.disabled = true; btn.textContent = 'Submitting…'; }
 
-  // Re-render just this card area
-  const sbtn = document.getElementById('sbtn-'+matchId);
-  const saved = document.getElementById('saved-'+matchId);
-  if(sbtn){ sbtn.disabled=true; sbtn.textContent='Submitted'; }
-  if(saved) saved.classList.add('show');
-  // disable all prediction buttons for this match
-  document.querySelectorAll(`#mg .mc .popt`).forEach(b => {
-    if(b.closest('.mc') && b.closest('.mc').querySelector(`[id="sbtn-${matchId}"]`)) b.disabled=true;
-  });
+  try {
+    await callAS('saveBet', {
+      playerId:   playerIdFor(S.me.name),
+      playerName: S.me.name,
+      matchId:    matchId,
+      q1: preds.q1 || '', q2: preds.q2 || '', q3: preds.q3 || '', q4: preds.q4 || '',
+      wager,
+      timestamp:  new Date().toISOString()
+    });
+    await refreshMyBets();
+    updateWalletUI();
+    renderMatches(currentFilter);
+    toast('Bet Placed! 🎯', `${wager} pts wagered on ${m.nameA} vs ${m.nameB}`);
+  } catch (err) {
+    if (btn) { btn.disabled = false; btn.textContent = 'Place Bet'; }
+    showError(err);
+  }
 }
 
 // ══════════════════════════════════════════
 // LEADERBOARD
 // ══════════════════════════════════════════
-async function renderLB() {
-  // Pull the latest other-player rows from the Apps Script Leaderboard tab
-  // (if configured). Falls back silently to whatever we have cached locally.
-  if (getASUrl()) {
-    const res = await callAS('getLeaderboard');
-    if (res && res.ok && Array.isArray(res.leaderboard)) {
-      S.otherPlayers = res.leaderboard.map(p => ({
-        name:   p.playerName || 'Player',
-        av:     initialsOf(p.playerName || 'Player'),
-        color:  colorFor(p.playerName || 'Player'),
-        wins:   Number(p.wins)   || 0,
-        losses: Number(p.losses) || 0,
-        draws:  Number(p.draws)  || 0,
-        wallet: Number(p.wallet) || 0,
-        pts:    Number(p.pts)    || 0,
-      }));
-      save();
-    }
-  }
-
-  const rows = [buildMePlayer(), ...(S.otherPlayers || [])]
-    .sort((a,b) => b.pts - a.pts || b.wallet - a.wallet);
+function renderLB() {
+  const others = S.cache.otherPlayers || [];
+  const meRow = S.me?.name ? [buildMePlayer()] : [];
+  const rows = [...meRow, ...others].sort((a,b) => b.pts - a.pts || b.wallet - a.wallet);
 
   const body = document.getElementById('lb-body');
   if (!rows.length) {
@@ -915,30 +923,36 @@ async function renderLB() {
 }
 
 // ══════════════════════════════════════════
-// MY BETS
+// MY BETS — sourced entirely from GS via getMyBets.
 // ══════════════════════════════════════════
 function renderBets() {
-  const wins  = S.bets.filter(b=>b.outcome==='win').length;
-  const losses= S.bets.filter(b=>b.outcome==='loss').length;
-  const pend  = S.bets.filter(b=>b.outcome==='pending').length;
-  document.getElementById('bs-placed').textContent  = S.bets.length;
+  const bets = S.cache.bets;
+  const wins  = bets.filter(b=>b.outcome==='win').length;
+  const losses= bets.filter(b=>b.outcome==='loss').length;
+  const pend  = bets.filter(b=>b.outcome==='pending').length;
+  document.getElementById('bs-placed').textContent  = bets.length;
   document.getElementById('bs-wins').textContent    = wins;
   document.getElementById('bs-losses').textContent  = losses;
   document.getElementById('bs-pend').textContent    = pend;
 
   const list = document.getElementById('bets-list');
   const empty = document.getElementById('bets-empty');
-  if(!S.bets.length){ list.innerHTML=''; empty.style.display='block'; return; }
+  if(!bets.length){ list.innerHTML=''; empty.style.display='block'; return; }
   empty.style.display='none';
 
-  list.innerHTML = [...S.bets].reverse().map(b => {
+  // Join with matches cache so we can show team names/flags.
+  const matchById = new Map(S.cache.matches.map(m => [String(m.id), m]));
+
+  list.innerHTML = [...bets].reverse().map(b => {
+    const m = matchById.get(String(b.matchId));
+    const preds = { q1: b.q1, q2: b.q2, q3: b.q3, q4: b.q4 };
     const ql = {q1:'Result',q2:'First Goal',q3:'Goals',q4:'Clean Sheet'};
-    const plines = Object.entries(b.predictions).map(([q,v]) => `${ql[q]}: <strong>${v}</strong>`).join(' · ');
-    const oc = {win:'out-win',loss:'out-lose',pending:'out-pend'}[b.outcome];
-    const ot = {win:`+${b.wager} pts ✓`,loss:`−${b.wager} pts ✗`,pending:`${b.wager} pts (pending)`}[b.outcome];
+    const plines = Object.entries(preds).filter(([,v])=>v).map(([q,v]) => `${ql[q]}: <strong>${v}</strong>`).join(' · ');
+    const oc = {win:'out-win',loss:'out-lose',pending:'out-pend'}[b.outcome] || 'out-pend';
+    const ot = ({win:`+${b.wager} pts ✓`,loss:`−${b.wager} pts ✗`,pending:`${b.wager} pts (pending)`})[b.outcome] || `${b.wager} pts`;
     return `<div class="bet-card">
       <div>
-        <div class="bet-match">${b.match?.flagA||'⚽'} ${b.match?.nameA||'?'} vs ${b.match?.nameB||'?'} ${b.match?.flagB||''}</div>
+        <div class="bet-match">${m?.flagA||'⚽'} ${m?.nameA||'?'} vs ${m?.nameB||'?'} ${m?.flagB||''}</div>
         <div class="bet-preds">${plines}</div>
       </div>
       <div class="bet-right">
@@ -1022,18 +1036,20 @@ function switchATab(id, el) {
   if(id==='results') renderAdminMatches();
 }
 
-function renderAdminMatches() {
-  const cfg = getGSConfig();
+async function renderAdminMatches() {
   const gsEl = document.getElementById('gs-status');
-  if(cfg.apiKey && cfg.sheetId) {
-    gsEl.className='gs-status ok';
-    gsEl.textContent='✅ Google Sheets connected. Results sync to cloud on save.';
-  } else {
-    gsEl.className='gs-status';
-    gsEl.textContent='💾 localStorage only. Add Google Sheets config in Settings to enable cloud sync.';
+  if(!getASUrl()) {
+    gsEl.className='gs-status err';
+    gsEl.textContent='❌ Apps Script URL not configured. Set it in Settings.';
+    document.getElementById('admin-match-list').innerHTML = '';
+    return;
   }
+  gsEl.className='gs-status ok';
+  gsEl.textContent='✅ Google Sheets connected. Results sync to cloud on save.';
 
-  document.getElementById('admin-match-list').innerHTML = S.matches.map(m => `
+  try { await refreshMatches(); } catch(err) { showError(err); return; }
+
+  document.getElementById('admin-match-list').innerHTML = S.cache.matches.map(m => `
     <div class="admin-match-row">
       <div>
         <div class="amr-match">${m.flagA} ${m.nameA} vs ${m.nameB} ${m.flagB}</div>
@@ -1048,77 +1064,38 @@ function renderAdminMatches() {
           <option value="live"     ${m.status==='live'?'selected':''}>Live</option>
           <option value="complete" ${m.status==='complete'?'selected':''}>Complete</option>
         </select>
-        <button class="save-btn" onclick="saveResult(${m.id})">Save</button>
+        <button class="save-btn" onclick="saveResult('${m.id}')">Save</button>
       </div>
     </div>`).join('');
 }
 
-function saveResult(matchId) {
-  const idx = S.matches.findIndex(m => m.id===matchId);
-  if(idx<0) return;
+async function saveResult(matchId) {
   const sA = parseInt(document.getElementById('sa-'+matchId).value);
   const sB = parseInt(document.getElementById('sb-'+matchId).value);
   const st = document.getElementById('st-'+matchId).value;
-  if(!isNaN(sA)) S.matches[idx].scoreA = sA;
-  if(!isNaN(sB)) S.matches[idx].scoreB = sB;
-  S.matches[idx].status = st;
-
-  // Settle bets for this match if complete
-  if(st==='complete') settleBets(matchId, sA, sB);
-
-  save();
-  toast('✓ Saved',`${S.matches[idx].nameA} vs ${S.matches[idx].nameB} updated.`);
-  if(currentFilter) renderMatches(currentFilter);
-  // sync to Sheets — Apps Script will also settle bets server-side
-  syncResultToSheets(matchId, sA, sB, st).then(r => {
-    if(r?.ok) toast('✓ Synced to Sheets', r.message || 'Result saved to Google Sheet.');
-    else if(r?.error) console.warn('Sheet sync failed:', r.error);
-  });
+  try {
+    const res = await callAS('saveResult', { matchId, scoreA: isNaN(sA)?'':sA, scoreB: isNaN(sB)?'':sB, status: st });
+    toast('✓ Saved', res.message || 'Result saved to Google Sheet.');
+    await renderAdminMatches();
+  } catch (err) {
+    showError(err);
+  }
 }
 
-function settleBets(matchId, sA, sB) {
-  const m = S.matches.find(x => x.id===matchId);
-  S.bets.forEach(b => {
-    if(b.matchId !== matchId || b.outcome !== 'pending') return;
-    const correct = checkPredictions(b.predictions, m, sA, sB);
-    b.outcome = correct ? 'win' : 'loss';
-    if(correct) S.wallet += b.wager * 2;
-  });
-  updateWalletUI();
-}
-
-function checkPredictions(preds, m, sA, sB) {
-  // Q1: match result
-  const q1 = preds.q1;
-  const actualResult = sA > sB ? 'Home Win' : sB > sA ? 'Away Win' : 'Draw';
-  if(q1 && q1 !== actualResult) return false;
-  // Q3: goals over/under (simplified check)
-  const totalGoals = (sA||0) + (sB||0);
-  const q3 = preds.q3;
-  if(q3==='0–1 Goals' && totalGoals>1) return false;
-  if(q3==='2–3 Goals' && (totalGoals<2||totalGoals>3)) return false;
-  if(q3==='4+ Goals' && totalGoals<4) return false;
-  // Q4: clean sheet
-  const q4 = preds.q4;
-  const hasCleanSheet = sA===0 || sB===0;
-  if(q4==='Yes' && !hasCleanSheet) return false;
-  if(q4==='No' && hasCleanSheet) return false;
-  return true;
-}
-
-function addFixture() {
+async function addFixture() {
   const a = document.getElementById('a-teamA').value.trim();
   const b = document.getElementById('a-teamB').value.trim();
   const d = document.getElementById('a-date').value.trim();
   const ph = document.getElementById('a-phase').value;
   const v = document.getElementById('a-venue').value.trim();
   if(!a||!b){ toast('Missing fields','Enter both team names.'); return; }
-  const newId = Math.max(...S.matches.map(m=>m.id), 0)+1;
-  S.matches.push({ id:newId, phase:ph, group:'?', flagA:'⚽', flagB:'⚽', nameA:a, nameB:b, date:d||'TBD', venue:v||'TBD', status:'upcoming' });
-  save();
-  toast('✓ Fixture Added',`${a} vs ${b} added.`);
-  renderAdminMatches();
-  syncFixtureToSheets({ nameA:a, nameB:b, date:d||'TBD', phase:ph, venue:v||'TBD' });
+  try {
+    await callAS('addFixture', { nameA:a, nameB:b, date:d||'TBD', phase:ph, venue:v||'TBD' });
+    toast('✓ Fixture Added',`${a} vs ${b} added.`);
+    await renderAdminMatches();
+  } catch (err) {
+    showError(err);
+  }
 }
 
 function loadGSConfigUI() {
@@ -1146,30 +1123,32 @@ async function saveGSConfig() {
 }
 
 function resetAllData() {
-  if(!confirm('⚠ This will erase ALL local data including bets and wallet. Are you sure?')) return;
+  if(!confirm('⚠ This will erase locally-stored identity and the Apps Script URL. Bets and standings live in Google Sheets and are NOT affected — use "Reset Sheets Data" for that. Continue?')) return;
   localStorage.removeItem(LS_KEY);
   S = initData();
   updateWalletUI();
-  renderMatches('all');
-  toast('Data Reset','All local data cleared.');
+  toast('Local Data Reset','Identity and config cleared. Bets remain in Google Sheets.');
   closeAdmin();
 }
 
 async function resetSheetsData() {
   if(!getASUrl()){ toast('Not configured','Set the Apps Script URL first.'); return; }
-  if(!confirm('⚠ This will wipe Predictions, Leaderboard, and Audit tabs in the connected Google Sheet for ALL players. Continue?')) return;
+  if(!confirm('⚠ TESTING: this will wipe ALL tabs (Fixtures, Predictions, Leaderboard, Audit, Config) in the connected Google Sheet for ALL players. Continue?')) return;
   const gsEl = document.getElementById('gs-status');
   gsEl.className = 'gs-status';
   gsEl.textContent = '🔄 Resetting Sheets data...';
-  const res = await callAS('resetData');
-  if(res?.ok){
+  try {
+    const res = await callAS('resetData');
     gsEl.className = 'gs-status ok';
     gsEl.textContent = '✅ Sheets data reset. ' + (res.message || '');
     toast('Sheets Reset', res.message || 'Cloud data cleared.');
-  } else {
+    // Clear in-memory cache so the user sees the reset reflected immediately.
+    S.cache = { matches: [], bets: [], otherPlayers: [], wallet: 100, loaded: false };
+    updateWalletUI();
+  } catch (err) {
     gsEl.className = 'gs-status err';
-    gsEl.textContent = '❌ ' + (res?.error || 'Reset failed.');
-    toast('Reset Failed', res?.error || 'Apps Script did not confirm reset.');
+    gsEl.textContent = '❌ ' + err.message;
+    showError(err);
   }
 }
 
@@ -1187,10 +1166,27 @@ function toast(title, msg) {
 }
 
 // ══════════════════════════════════════════
-// INIT
+// INIT — Pull live data from GS on load; nothing comes from localStorage.
 // ══════════════════════════════════════════
-updateWalletUI();
-renderMatches('all');
+(async () => {
+  updateWalletUI();
+  if (!getASUrl()) {
+    document.getElementById('mg').innerHTML =
+      `<div class="empty-state"><div class="ei">⚙️</div><h3>Not configured</h3><p>Open Admin → Settings and paste your Apps Script URL.</p></div>`;
+    return;
+  }
+  try {
+    await refreshMatches();
+    await refreshMyBets();
+    await refreshLeaderboard();
+    updateWalletUI();
+    renderMatches('all');
+  } catch (err) {
+    showError(err);
+    document.getElementById('mg').innerHTML =
+      `<div class="empty-state"><div class="ei">⚠️</div><h3>Couldn't load data</h3><p>${err.message}</p></div>`;
+  }
+})();
 </script>
 </body>
 </html>
