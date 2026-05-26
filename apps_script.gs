@@ -1,281 +1,264 @@
-/**
- * WC26 Predictor — Google Apps Script Web App backend
- *
- * Deploy:
- *   1. Open the connected Google Sheet → Extensions → Apps Script
- *   2. Paste this file as Code.gs
- *   3. Deploy → New deployment → Web App
- *        Execute as: Me
- *        Who has access: Anyone
- *   4. Copy the /exec URL → paste into Admin → Settings in the app
- *
- * Sheet tabs (created automatically on first call):
- *   Config       Key | Value
- *   Fixtures     Match_ID | Date | Team_A | Team_B | Score_A | Score_B | Status | Phase | Venue
- *   Predictions  Timestamp | Player_ID | Player_Name | Match_ID | Q1 | Q2 | Q3 | Q4 | Wager | Outcome
- *   Leaderboard  Player_ID | Name | Wins | Losses | Draws | Wallet | Pts
- *   Audit        Timestamp | Action | Details
- */
+// ============================================================
+// WC2026 Fantasy Predictor — Google Apps Script
+//
+// DEPLOY STEPS:
+//   1. Extensions → Apps Script → paste this file
+//   2. Deploy → New Deployment → Type: Web App
+//   3. Execute as: Me | Who has access: Anyone
+//   4. Click Deploy → Authorize → Copy the /exec URL
+//   5. In the app: Admin → Settings → paste the URL → Save & Test
+//
+// CORS FIX:
+//   Apps Script only handles GET and POST — no OPTIONS preflight.
+//   The HTML fetch() uses Content-Type: text/plain to avoid
+//   triggering a preflight. The doPost() response includes
+//   Access-Control-Allow-Origin: * so the browser accepts it.
+// ============================================================
 
-const TABS = {
-  CONFIG:      'Config',
-  FIXTURES:    'Fixtures',
-  PREDICTIONS: 'Predictions',
-  LEADERBOARD: 'Leaderboard',
-  AUDIT:       'Audit',
-};
+// ── CORS HELPER ─────────────────────────────────────────────
+// Every response MUST go through this to avoid CORS errors.
+function corsResponse(data) {
+  return ContentService
+    .createTextOutput(JSON.stringify(data))
+    .setMimeType(ContentService.MimeType.JSON);
+  // Note: Apps Script automatically adds Access-Control-Allow-Origin: *
+  // on Web App responses when deployed with "Anyone" access.
+  // The key fix on the client side is Content-Type: text/plain
+  // which avoids the OPTIONS preflight that Apps Script can't handle.
+}
 
-const HEADERS = {
-  [TABS.CONFIG]:      ['Key', 'Value'],
-  [TABS.FIXTURES]:    ['Match_ID', 'Date', 'Team_A', 'Team_B', 'Score_A', 'Score_B', 'Status', 'Phase', 'Venue'],
-  [TABS.PREDICTIONS]: ['Timestamp', 'Player_ID', 'Player_Name', 'Match_ID', 'Q1', 'Q2', 'Q3', 'Q4', 'Wager', 'Outcome'],
-  [TABS.LEADERBOARD]: ['Player_ID', 'Name', 'Wins', 'Losses', 'Draws', 'Wallet', 'Pts'],
-  [TABS.AUDIT]:       ['Timestamp', 'Action', 'Details'],
-};
-
-const STARTING_WALLET = 100;
-
-// ─── Entry points ──────────────────────────────────────────────────────────
-
-function doGet() {
-  ensureTabs_();
-  return json_({ ok: true, status: 'WC26 Predictor Apps Script alive' });
+// ── ENTRY POINTS ────────────────────────────────────────────
+function doGet(e) {
+  // Health check — open this URL in a browser to verify deployment
+  return corsResponse({
+    status: 'WC2026 API online',
+    time: new Date().toISOString(),
+    message: 'POST your actions to this URL from the predictor app.'
+  });
 }
 
 function doPost(e) {
   try {
-    ensureTabs_();
-    const body   = JSON.parse(e.postData.contents || '{}');
-    const action = body.action;
-    const data   = body.data || {};
+    const body = JSON.parse(e.postData.contents);
+    const { action, data } = body;
 
-    switch (action) {
-      case 'saveBet':        return json_(saveBet_(data));
-      case 'saveResult':     return json_(saveResult_(data));
-      case 'addFixture':     return json_(addFixture_(data));
-      case 'getLeaderboard': return json_(getLeaderboard_());
-      case 'resetData':      return json_(resetData_());
-      default:               return json_({ ok: false, error: 'Unknown action: ' + action });
+    const handlers = {
+      saveBet:        () => saveBet(data),
+      saveResult:     () => saveResult(data),
+      addFixture:     () => addFixture(data),
+      getFixtures:    () => getFixtures(),
+      getLeaderboard: () => getLeaderboard(),
+      getConfig:      () => getConfig(),
+      resetData:      () => resetData(),
+      ping:           () => ({ ok: true, message: 'pong' })
+    };
+
+    if (!handlers[action]) {
+      return corsResponse({ ok: false, error: 'Unknown action: ' + action });
     }
+
+    const result = handlers[action]();
+    return corsResponse(result);
+
   } catch (err) {
-    return json_({ ok: false, error: String(err && err.message || err) });
+    return corsResponse({ ok: false, error: err.message });
   }
 }
 
-// ─── Actions ───────────────────────────────────────────────────────────────
+// ── SHEET HELPERS ────────────────────────────────────────────
+function ss() { return SpreadsheetApp.getActiveSpreadsheet(); }
 
-function saveBet_(d) {
-  const sheet = sheet_(TABS.PREDICTIONS);
-  sheet.appendRow([
+function getSheet(name) {
+  let sheet = ss().getSheetByName(name);
+  if (!sheet) {
+    sheet = ss().insertSheet(name);
+    // Auto-create headers for each tab
+    const headers = {
+      'Fixtures':    ['Match_ID','Date','Phase','Group','Team_A','Team_B','Flag_A','Flag_B','Venue','Score_A','Score_B','Status'],
+      'Predictions': ['Timestamp','Player_ID','Player_Name','Match_ID','Q1','Q2','Q3','Q4','Wager','Outcome'],
+      'Leaderboard': ['Player_ID','Player_Name','Wins','Losses','Pending','Points_Earned','Points_Lost'],
+      'Config':      ['Key','Value'],
+      'Audit':       ['Timestamp','Action','Detail']
+    };
+    if (headers[name]) sheet.appendRow(headers[name]);
+  }
+  return sheet;
+}
+
+function audit(action, detail) {
+  getSheet('Audit').appendRow([new Date().toISOString(), action, JSON.stringify(detail)]);
+}
+
+// ── ACTIONS ──────────────────────────────────────────────────
+
+/**
+ * saveBet
+ * Called every time a user places a bet.
+ * Writes one row to Predictions tab.
+ */
+function saveBet(d) {
+  getSheet('Predictions').appendRow([
     d.timestamp || new Date().toISOString(),
-    d.playerId, d.playerName, d.matchId,
-    d.q1, d.q2, d.q3, d.q4,
-    Number(d.wager) || 0,
-    'pending',
+    d.playerId,
+    d.playerName,
+    d.matchId,
+    d.q1 || '',
+    d.q2 || '',
+    d.q3 || '',
+    d.q4 || '',
+    d.wager,
+    'pending'
   ]);
-  // Deduct wager from wallet immediately
-  upsertPlayerWallet_(d.playerId, d.playerName, -Number(d.wager || 0));
-  audit_('saveBet', `${d.playerName} on match ${d.matchId} for ${d.wager} pts`);
-  return { ok: true, message: 'Bet recorded.' };
+  audit('saveBet', { player: d.playerName, matchId: d.matchId, wager: d.wager });
+  return { ok: true, message: 'Bet saved for ' + d.playerName };
 }
 
-function saveResult_(d) {
-  const matchId = String(d.matchId);
-  const scoreA  = numOrNull_(d.scoreA);
-  const scoreB  = numOrNull_(d.scoreB);
-  const status  = d.status || 'complete';
+/**
+ * saveResult
+ * Admin only. Updates match score + status in Fixtures tab,
+ * then settles all pending bets for that match.
+ */
+function saveResult(d) {
+  const sheet = getSheet('Fixtures');
+  const rows  = sheet.getDataRange().getValues();
 
-  // Update fixture row
-  const fSheet = sheet_(TABS.FIXTURES);
-  const rows = fSheet.getDataRange().getValues();
-  let updated = false;
-  for (let r = 1; r < rows.length; r++) {
-    if (String(rows[r][0]) === matchId) {
-      if (scoreA !== null) fSheet.getRange(r + 1, 5).setValue(scoreA);
-      if (scoreB !== null) fSheet.getRange(r + 1, 6).setValue(scoreB);
-      fSheet.getRange(r + 1, 7).setValue(status);
-      updated = true;
-      break;
-    }
+  // Find row with matching Match_ID (col A = index 0)
+  let rowIndex = -1;
+  for (let i = 1; i < rows.length; i++) {
+    if (String(rows[i][0]) === String(d.matchId)) { rowIndex = i + 1; break; }
   }
-  if (!updated) return { ok: false, error: `Match ${matchId} not found in Fixtures.` };
+  if (rowIndex < 0) return { ok: false, error: 'Match not found: ' + d.matchId };
+
+  // Fixtures columns: Match_ID(A), Date(B), Phase(C), Group(D),
+  //                   Team_A(E), Team_B(F), Flag_A(G), Flag_B(H),
+  //                   Venue(I), Score_A(J=10), Score_B(K=11), Status(L=12)
+  sheet.getRange(rowIndex, 10).setValue(d.scoreA);
+  sheet.getRange(rowIndex, 11).setValue(d.scoreB);
+  sheet.getRange(rowIndex, 12).setValue(d.status);
 
   let settled = 0;
-  if (status === 'complete' && scoreA !== null && scoreB !== null) {
-    settled = settlePendingBets_(matchId, scoreA, scoreB);
+  if (d.status === 'complete') {
+    settled = settleBets(d.matchId, Number(d.scoreA), Number(d.scoreB));
   }
-  audit_('saveResult', `match=${matchId} ${scoreA}-${scoreB} status=${status} settled=${settled}`);
-  return { ok: true, message: `Result saved. ${settled} bet(s) settled.` };
+
+  audit('saveResult', d);
+  return { ok: true, settled, message: 'Result saved. ' + settled + ' bets settled.' };
 }
 
-function addFixture_(d) {
-  const sheet = sheet_(TABS.FIXTURES);
-  const nextId = nextFixtureId_(sheet);
-  sheet.appendRow([nextId, d.date || '', d.nameA, d.nameB, '', '', 'upcoming', d.phase || 'group', d.venue || '']);
-  audit_('addFixture', `${d.nameA} vs ${d.nameB} (#${nextId})`);
-  return { ok: true, message: 'Fixture added.', id: nextId };
-}
-
-function getLeaderboard_() {
-  const sheet = sheet_(TABS.LEADERBOARD);
-  const rows = sheet.getDataRange().getValues();
-  const players = [];
-  for (let r = 1; r < rows.length; r++) {
-    const [playerId, name, wins, losses, draws, wallet, pts] = rows[r];
-    if (!name) continue;
-    players.push({
-      name:   String(name),
-      wins:   Number(wins)   || 0,
-      losses: Number(losses) || 0,
-      draws:  Number(draws)  || 0,
-      wallet: Number(wallet) || 0,
-      pts:    Number(pts)    || 0,
-    });
-  }
-  return { ok: true, players };
-}
-
-function resetData_() {
-  [TABS.PREDICTIONS, TABS.LEADERBOARD, TABS.AUDIT].forEach(name => {
-    const sheet = sheet_(name);
-    sheet.clear();
-    sheet.appendRow(HEADERS[name]);
-  });
-  audit_('resetData', 'Predictions, Leaderboard, and Audit tabs cleared');
-  return { ok: true, message: 'Sheets reset (Predictions, Leaderboard, Audit).' };
-}
-
-// ─── Bet settlement ────────────────────────────────────────────────────────
-
-function settlePendingBets_(matchId, scoreA, scoreB) {
-  const fixture = findFixture_(matchId);
-  if (!fixture) return 0;
-
-  const pSheet = sheet_(TABS.PREDICTIONS);
-  const rows = pSheet.getDataRange().getValues();
+/**
+ * settleBets
+ * Reads all pending Predictions rows for a match,
+ * evaluates each against the actual result, writes 'win' or 'loss'.
+ */
+function settleBets(matchId, sA, sB) {
+  const sheet = getSheet('Predictions');
+  const rows  = sheet.getDataRange().getValues();
+  const total = (sA || 0) + (sB || 0);
+  const result = sA > sB ? 'Home Win' : sB > sA ? 'Away Win' : 'Draw';
+  const cleanSheet = sA === 0 || sB === 0;
   let count = 0;
 
-  for (let r = 1; r < rows.length; r++) {
-    const row = rows[r];
-    const rowMatchId = String(row[3]);
-    const outcome   = row[9];
-    if (rowMatchId !== String(matchId) || outcome !== 'pending') continue;
+  for (let i = 1; i < rows.length; i++) {
+    const r = rows[i];
+    // Cols: Timestamp(0), Player_ID(1), Player_Name(2), Match_ID(3),
+    //       Q1(4), Q2(5), Q3(6), Q4(7), Wager(8), Outcome(9)
+    if (String(r[3]) !== String(matchId) || r[9] !== 'pending') continue;
 
-    const preds = { q1: row[4], q2: row[5], q3: row[6], q4: row[7] };
-    const wager = Number(row[8]) || 0;
-    const playerId   = row[1];
-    const playerName = row[2];
+    let win = true;
+    if (r[4] && r[4] !== result)                                   win = false;
+    if (r[6] === '0–1 Goals'  && total > 1)                        win = false;
+    if (r[6] === '2–3 Goals'  && (total < 2 || total > 3))         win = false;
+    if (r[6] === '4+ Goals'   && total < 4)                        win = false;
+    if (r[7] === 'Yes'        && !cleanSheet)                      win = false;
+    if (r[7] === 'No'         && cleanSheet)                       win = false;
 
-    const won = checkPredictions_(preds, fixture, scoreA, scoreB);
-    const outcomeStr = won ? 'win' : 'loss';
-    pSheet.getRange(r + 1, 10).setValue(outcomeStr);
-
-    // win returns 2× wager (refund stake + equal profit); loss already debited at saveBet
-    const walletDelta = won ? wager * 2 : 0;
-    const ptsDelta    = won ? wager : 0;
-    const winsDelta   = won ? 1 : 0;
-    const lossesDelta = won ? 0 : 1;
-    bumpPlayer_(playerId, playerName, { wallet: walletDelta, pts: ptsDelta, wins: winsDelta, losses: lossesDelta });
+    sheet.getRange(i + 1, 10).setValue(win ? 'win' : 'loss');
     count++;
   }
   return count;
 }
 
-function checkPredictions_(preds, fixture, sA, sB) {
-  const actualResult = sA > sB ? 'Home Win' : sB > sA ? 'Away Win' : 'Draw';
-  if (preds.q1 && preds.q1 !== actualResult) return false;
-
-  const totalGoals = (sA || 0) + (sB || 0);
-  if (preds.q3 === '0–1 Goals' && totalGoals > 1) return false;
-  if (preds.q3 === '2–3 Goals' && (totalGoals < 2 || totalGoals > 3)) return false;
-  if (preds.q3 === '4+ Goals'  && totalGoals < 4) return false;
-
-  const hasCleanSheet = sA === 0 || sB === 0;
-  if (preds.q4 === 'Yes' && !hasCleanSheet) return false;
-  if (preds.q4 === 'No'  &&  hasCleanSheet) return false;
-
-  return true;
-}
-
-// ─── Leaderboard upserts ───────────────────────────────────────────────────
-
-function upsertPlayerWallet_(playerId, playerName, walletDelta) {
-  bumpPlayer_(playerId, playerName, { wallet: walletDelta });
-}
-
-function bumpPlayer_(playerId, playerName, delta) {
-  const sheet = sheet_(TABS.LEADERBOARD);
-  const rows = sheet.getDataRange().getValues();
-  for (let r = 1; r < rows.length; r++) {
-    if (String(rows[r][0]) === String(playerId)) {
-      const cur = { wins: Number(rows[r][2]) || 0, losses: Number(rows[r][3]) || 0,
-                    draws: Number(rows[r][4]) || 0, wallet: Number(rows[r][5]) || 0,
-                    pts: Number(rows[r][6]) || 0 };
-      sheet.getRange(r + 1, 3).setValue(cur.wins   + (delta.wins   || 0));
-      sheet.getRange(r + 1, 4).setValue(cur.losses + (delta.losses || 0));
-      sheet.getRange(r + 1, 5).setValue(cur.draws  + (delta.draws  || 0));
-      sheet.getRange(r + 1, 6).setValue(cur.wallet + (delta.wallet || 0));
-      sheet.getRange(r + 1, 7).setValue(cur.pts    + (delta.pts    || 0));
-      return;
-    }
-  }
+/**
+ * addFixture
+ * Admin only. Appends a new match to Fixtures tab.
+ */
+function addFixture(d) {
+  const sheet = getSheet('Fixtures');
+  const newId = Math.max(0, sheet.getLastRow() - 1) + 1; // auto-increment
   sheet.appendRow([
-    playerId, playerName,
-    delta.wins   || 0,
-    delta.losses || 0,
-    delta.draws  || 0,
-    STARTING_WALLET + (delta.wallet || 0),
-    delta.pts    || 0,
+    newId, d.date || 'TBD', d.phase || 'group', d.group || '?',
+    d.nameA, d.nameB, d.flagA || '⚽', d.flagB || '⚽',
+    d.venue || 'TBD', '', '', 'upcoming'
   ]);
+  audit('addFixture', { nameA: d.nameA, nameB: d.nameB });
+  return { ok: true, matchId: newId, message: 'Fixture added: ' + d.nameA + ' vs ' + d.nameB };
 }
 
-// ─── Helpers ───────────────────────────────────────────────────────────────
-
-function ensureTabs_() {
-  Object.keys(HEADERS).forEach(name => {
-    const sheet = sheet_(name);
-    if (sheet.getLastRow() === 0) sheet.appendRow(HEADERS[name]);
+/**
+ * getFixtures
+ * Returns all rows from Fixtures tab as an array of objects.
+ * The HTML calls this on page load to sync match data from the Sheet.
+ */
+function getFixtures() {
+  const rows = getSheet('Fixtures').getDataRange().getValues();
+  if (rows.length < 2) return { ok: true, matches: [] };
+  const [headers, ...data] = rows;
+  const matches = data.map(row => {
+    const obj = {};
+    headers.forEach((h, i) => obj[h] = row[i]);
+    return obj;
   });
+  return { ok: true, matches };
 }
 
-function sheet_(name) {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  return ss.getSheetByName(name) || ss.insertSheet(name);
-}
+/**
+ * getLeaderboard
+ * Aggregates Predictions tab per player: wins, losses, wallet, total pts.
+ */
+function getLeaderboard() {
+  const rows = getSheet('Predictions').getDataRange().getValues();
+  if (rows.length < 2) return { ok: true, leaderboard: [] };
 
-function findFixture_(matchId) {
-  const rows = sheet_(TABS.FIXTURES).getDataRange().getValues();
-  for (let r = 1; r < rows.length; r++) {
-    if (String(rows[r][0]) === String(matchId)) {
-      return { id: rows[r][0], date: rows[r][1], nameA: rows[r][2], nameB: rows[r][3],
-               status: rows[r][6], phase: rows[r][7], venue: rows[r][8] };
-    }
+  const players = {};
+  for (let i = 1; i < rows.length; i++) {
+    const [ts, pid, pname, mid, q1, q2, q3, q4, wager, outcome] = rows[i];
+    if (!players[pid]) players[pid] = { playerId: pid, playerName: pname, wins: 0, losses: 0, pending: 0, wallet: 100, pts: 0 };
+    const p = players[pid];
+    const w = parseInt(wager) || 0;
+    if (outcome === 'win')     { p.wins++;    p.wallet += w; p.pts += w; }
+    if (outcome === 'loss')    { p.losses++;  p.wallet -= w; }
+    if (outcome === 'pending') { p.pending++;               }
   }
-  return null;
+  return { ok: true, leaderboard: Object.values(players).sort((a, b) => b.pts - a.pts) };
 }
 
-function nextFixtureId_(sheet) {
-  const rows = sheet.getDataRange().getValues();
-  let max = 0;
-  for (let r = 1; r < rows.length; r++) {
-    const n = Number(rows[r][0]);
-    if (!isNaN(n) && n > max) max = n;
-  }
-  return max + 1;
+/**
+ * getConfig
+ * Returns Config tab key-value pairs.
+ */
+function getConfig() {
+  const rows = getSheet('Config').getDataRange().getValues();
+  const config = {};
+  rows.forEach(r => { if (r[0]) config[r[0]] = r[1]; });
+  return { ok: true, config };
 }
 
-function audit_(action, details) {
-  sheet_(TABS.AUDIT).appendRow([new Date().toISOString(), action, details]);
-}
-
-function numOrNull_(v) {
-  if (v === '' || v === null || v === undefined) return null;
-  const n = Number(v);
-  return isNaN(n) ? null : n;
-}
-
-function json_(obj) {
-  return ContentService
-    .createTextOutput(JSON.stringify(obj))
-    .setMimeType(ContentService.MimeType.JSON);
+/**
+ * resetData
+ * Admin only. Wipes Predictions, Leaderboard, and Audit tabs
+ * and rewrites their header rows. Fixtures and Config are preserved.
+ */
+function resetData() {
+  const headers = {
+    'Predictions': ['Timestamp','Player_ID','Player_Name','Match_ID','Q1','Q2','Q3','Q4','Wager','Outcome'],
+    'Leaderboard': ['Player_ID','Player_Name','Wins','Losses','Pending','Points_Earned','Points_Lost'],
+    'Audit':       ['Timestamp','Action','Detail']
+  };
+  Object.keys(headers).forEach(name => {
+    const sheet = getSheet(name);
+    sheet.clear();
+    sheet.appendRow(headers[name]);
+  });
+  audit('resetData', { tabs: Object.keys(headers) });
+  return { ok: true, message: 'Sheets reset (Predictions, Leaderboard, Audit).' };
 }

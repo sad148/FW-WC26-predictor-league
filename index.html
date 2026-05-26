@@ -873,11 +873,11 @@ async function renderLB() {
   // (if configured). Falls back silently to whatever we have cached locally.
   if (getASUrl()) {
     const res = await callAS('getLeaderboard');
-    if (res && res.ok && Array.isArray(res.players)) {
-      S.otherPlayers = res.players.map(p => ({
-        name:   p.name || 'Player',
-        av:     initialsOf(p.name || 'Player'),
-        color:  colorFor(p.name || 'Player'),
+    if (res && res.ok && Array.isArray(res.leaderboard)) {
+      S.otherPlayers = res.leaderboard.map(p => ({
+        name:   p.playerName || 'Player',
+        av:     initialsOf(p.playerName || 'Player'),
+        color:  colorFor(p.playerName || 'Player'),
         wins:   Number(p.wins)   || 0,
         losses: Number(p.losses) || 0,
         draws:  Number(p.draws)  || 0,
