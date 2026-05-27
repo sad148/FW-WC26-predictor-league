@@ -475,6 +475,10 @@ body::before{
         <!-- Schedule Tab -->
         <div class="admin-section" id="at-schedule">
           <p style="font-family:var(--font-cond);font-size:14px;color:var(--off);margin-bottom:1rem;">Add or modify match fixtures. New fixtures propagate to all users instantly.</p>
+          <div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:1.25rem;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+            <div style="flex:1;min-width:160px;font-family:var(--font-cond);font-size:13px;color:var(--off);">Need a starting set? Bulk-load 8 sample WC2026 fixtures.</div>
+            <button class="save-btn" onclick="seedFixtures()">📋 Load Sample Fixtures</button>
+          </div>
           <div class="fg"><label class="flabel">Team A</label><input class="finput" id="a-teamA" placeholder="e.g. Brazil"></div>
           <div class="fg"><label class="flabel">Team B</label><input class="finput" id="a-teamB" placeholder="e.g. Germany"></div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
@@ -1162,6 +1166,17 @@ async function saveResult(matchId) {
   try {
     const res = await callAS('saveResult', { matchId, scoreA: isNaN(sA)?'':sA, scoreB: isNaN(sB)?'':sB, status: st });
     toast('✓ Saved', res.message || 'Result saved to Google Sheet.');
+    await renderAdminMatches();
+  } catch (err) {
+    showError(err);
+  }
+}
+
+async function seedFixtures() {
+  if(!confirm('Bulk-load 8 sample WC2026 fixtures into the Fixtures tab? (Only works if the tab is empty.)')) return;
+  try {
+    const res = await callAS('seedFixtures');
+    toast('✓ Seeded', res.message);
     await renderAdminMatches();
   } catch (err) {
     showError(err);

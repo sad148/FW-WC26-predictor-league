@@ -54,6 +54,7 @@ function doPost(e) {
       loginPlayer:    () => loginPlayer(data),
       createLeague:   () => createLeague(data),
       getLeague:      () => getLeague(),
+      seedFixtures:   () => seedFixtures(),
       resetData:      () => resetData(),
       ping:           () => ({ ok: true, message: 'pong' })
     };
@@ -295,6 +296,32 @@ function registerPlayer(d) {
   sheet.appendRow([playerId, name, salt, hash, new Date().toISOString()]);
   audit('registerPlayer', { name, playerId });
   return { ok: true, playerId, name };
+}
+
+/**
+ * seedFixtures (admin only)
+ * Bulk-inserts a starter list of WC2026 sample fixtures into Fixtures tab.
+ * Errors out if the tab already has data — admin must Reset first to re-seed.
+ */
+function seedFixtures() {
+  const sheet = getSheet('Fixtures');
+  if (sheet.getLastRow() > 1) {
+    return { ok: false, error: 'Fixtures tab already has data. Reset first if you want to re-seed.' };
+  }
+  // Columns: Match_ID, Date, Phase, Group, Team_A, Team_B, Flag_A, Flag_B, Venue, Score_A, Score_B, Status
+  const fixtures = [
+    [1, 'Jun 11', 'group',    'A',   'Mexico',      'USA',     '🇲🇽', '🇺🇸', 'AT&T Stadium, Dallas',         '', '', 'upcoming'],
+    [2, 'Jun 12', 'group',    'A',   'Canada',      'Brazil',  '🇨🇦', '🇧🇷', 'MetLife Stadium, NJ',          '', '', 'upcoming'],
+    [3, 'Jun 13', 'group',    'B',   'England',     'France',  '🏴󠁧󠁢󠁥󠁮󠁧󠁿', '🇫🇷', 'SoFi Stadium, LA',             '', '', 'upcoming'],
+    [4, 'Jun 13', 'group',    'B',   'Germany',     'Japan',   '🇩🇪', '🇯🇵', "Levi's Stadium, SF",           '', '', 'upcoming'],
+    [5, 'Jun 14', 'group',    'C',   'Argentina',   'Chile',   '🇦🇷', '🇨🇱', 'Rose Bowl, LA',                '', '', 'upcoming'],
+    [6, 'Jun 14', 'group',    'C',   'Spain',       'Portugal','🇪🇸', '🇵🇹', 'NRG Stadium, Houston',         '', '', 'upcoming'],
+    [7, 'Jun 28', 'knockout', 'R16', 'Netherlands', 'Senegal', '🇳🇱', '🇸🇳', 'Lincoln Financial, Philly',    '', '', 'upcoming'],
+    [8, 'Jun 29', 'knockout', 'R16', 'Italy',       'Uruguay', '🇮🇹', '🇺🇾', 'Gillette Stadium, Boston',     '', '', 'upcoming']
+  ];
+  fixtures.forEach(f => sheet.appendRow(f));
+  audit('seedFixtures', { count: fixtures.length });
+  return { ok: true, message: `Seeded ${fixtures.length} sample fixtures.` };
 }
 
 /**
