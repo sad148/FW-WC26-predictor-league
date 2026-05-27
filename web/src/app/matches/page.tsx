@@ -68,10 +68,10 @@ export default function MatchesPage() {
   }), [matches, filter]);
 
   function setDraft(matchId: number, patch: Partial<Draft>) {
-    setDrafts(d => ({
-      ...d,
-      [matchId]: { wager: 2, ...d[matchId], ...patch },
-    }));
+    setDrafts(d => {
+      const base: Draft = d[matchId] ?? { wager: 2 };
+      return { ...d, [matchId]: { ...base, ...patch } };
+    });
   }
 
   async function submit(matchId: number) {
