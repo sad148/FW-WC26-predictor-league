@@ -395,6 +395,7 @@ body::before{
     <div class="lform" style="max-width:440px;">
       <div class="lform-title" id="auth-title" style="color:var(--gold)">LOGIN</div>
       <div class="fg"><label class="flabel">Name</label><input class="finput" id="auth-name" type="text" placeholder="Your display name" autocomplete="username"></div>
+      <div class="fg" id="auth-code-fg" style="display:none;"><label class="flabel">League Code</label><input class="finput" id="auth-code" type="text" placeholder="WC26-XXXX" style="letter-spacing:2px;font-family:'Barlow Condensed',monospace;font-weight:700;text-transform:uppercase;"></div>
       <div class="fg"><label class="flabel">Password</label><input class="finput" id="auth-pwd" type="password" placeholder="At least 4 characters" autocomplete="current-password" onkeydown="if(event.key==='Enter')submitAuth()"></div>
       <button class="btn-gold" id="auth-submit" style="width:100%;margin-top:4px;" onclick="submitAuth()">Login →</button>
     </div>
@@ -461,6 +462,7 @@ body::before{
         <div class="admin-tabs">
           <button class="atab on" onclick="switchATab('results',this)">Post Results</button>
           <button class="atab" onclick="switchATab('schedule',this)">Manage Fixtures</button>
+          <button class="atab" onclick="switchATab('league',this)">League</button>
           <button class="atab" onclick="switchATab('settings',this)">Settings</button>
         </div>
 
@@ -486,6 +488,20 @@ body::before{
           </div>
           <div class="fg"><label class="flabel">Venue</label><input class="finput" id="a-venue" placeholder="e.g. MetLife Stadium, NJ"></div>
           <button class="btn-gold" style="width:100%;" onclick="addFixture()">Add Fixture</button>
+        </div>
+
+        <!-- League Tab -->
+        <div class="admin-section" id="at-league">
+          <div style="font-family:var(--font-cond);font-size:13px;color:var(--off);margin-bottom:8px;letter-spacing:.3px;">Current league</div>
+          <div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:1.25rem;">
+            <div style="font-family:var(--font-display);font-size:24px;color:var(--gold);" id="league-cur-name">—</div>
+            <div style="font-family:'Barlow Condensed',monospace;font-size:18px;letter-spacing:3px;color:var(--gold2);margin-top:4px;" id="league-cur-code">No league created yet.</div>
+          </div>
+          <div class="fg"><label class="flabel">New League Name</label><input class="finput" id="a-lname" placeholder="e.g. WC2026 Predictor"></div>
+          <button class="btn-gold" style="width:100%;" onclick="createLeague()">Create League →</button>
+          <div style="font-family:var(--font-cond);font-size:12px;color:var(--off);margin-top:8px;line-height:1.5;">
+            Creating a new league generates a fresh invite code. Existing players stay registered — only new sign-ups need the new code. For a full wipe (players + bets), use "Reset Sheets Data" in Settings.
+          </div>
         </div>
 
         <!-- Settings Tab -->
@@ -975,12 +991,15 @@ function switchAuthTab(mode) {
   document.getElementById('auth-title').textContent  = mode === 'login' ? 'LOGIN' : 'REGISTER';
   document.getElementById('auth-submit').textContent = mode === 'login' ? 'Login →' : 'Register →';
   document.getElementById('auth-pwd').setAttribute('autocomplete', mode === 'login' ? 'current-password' : 'new-password');
+  document.getElementById('auth-code-fg').style.display = mode === 'register' ? 'block' : 'none';
 }
 
 async function submitAuth() {
   const name = document.getElementById('auth-name').value.trim();
   const pwd  = document.getElementById('auth-pwd').value;
+  const code = document.getElementById('auth-code').value.trim().toUpperCase();
   if (!name || !pwd) { toast('Missing fields','Enter name and password.'); return; }
+  if (authMode === 'register' && !code) { toast('Missing league code','Ask the admin for the code.'); return; }
 
   const btn = document.getElementById('auth-submit');
   const originalLabel = btn.textContent;
@@ -989,11 +1008,15 @@ async function submitAuth() {
 
   try {
     const action = authMode === 'login' ? 'loginPlayer' : 'registerPlayer';
-    const res = await callAS(action, { name, password: pwd });
+    const payload = authMode === 'login'
+      ? { name, password: pwd }
+      : { name, password: pwd, leagueCode: code };
+    const res = await callAS(action, payload);
     S.me = { name: res.name, playerId: res.playerId };
     save();
     document.getElementById('auth-pwd').value = '';
     document.getElementById('auth-name').value = '';
+    document.getElementById('auth-code').value = '';
     renderAuthState();
     toast(authMode === 'login' ? '✓ Logged in' : '✓ Account created', `Welcome, ${res.name}!`);
     // Refresh data with the new identity
@@ -1067,6 +1090,36 @@ function switchATab(id, el) {
   document.querySelectorAll('.admin-section').forEach(s=>s.classList.remove('on'));
   document.getElementById('at-'+id).classList.add('on');
   if(id==='results') renderAdminMatches();
+  if(id==='league')  loadLeagueInfo();
+}
+
+async function loadLeagueInfo() {
+  if (!getASUrl()) {
+    document.getElementById('league-cur-name').textContent = '—';
+    document.getElementById('league-cur-code').textContent = 'Configure Apps Script URL first.';
+    return;
+  }
+  try {
+    const res = await callAS('getLeague');
+    document.getElementById('league-cur-name').textContent = res.name || '—';
+    document.getElementById('league-cur-code').textContent = res.code || 'No league created yet.';
+  } catch (err) {
+    showError(err);
+  }
+}
+
+async function createLeague() {
+  const name = document.getElementById('a-lname').value.trim();
+  if (!name) { toast('Missing fields','Enter a league name.'); return; }
+  try {
+    const res = await callAS('createLeague', { name });
+    document.getElementById('a-lname').value = '';
+    document.getElementById('league-cur-name').textContent = res.name;
+    document.getElementById('league-cur-code').textContent = res.code;
+    toast('✓ League created', `Share code: ${res.code}`);
+  } catch (err) {
+    showError(err);
+  }
 }
 
 async function renderAdminMatches() {

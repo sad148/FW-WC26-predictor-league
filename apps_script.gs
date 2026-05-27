@@ -52,6 +52,8 @@ function doPost(e) {
       getConfig:      () => getConfig(),
       registerPlayer: () => registerPlayer(data),
       loginPlayer:    () => loginPlayer(data),
+      createLeague:   () => createLeague(data),
+      getLeague:      () => getLeague(),
       resetData:      () => resetData(),
       ping:           () => ({ ok: true, message: 'pong' })
     };
@@ -263,13 +265,20 @@ function getMyBets(d) {
 /**
  * registerPlayer
  * Creates a new player row. Name must be unique (case-insensitive).
+ * Caller must supply the active league code (set by admin via createLeague).
  * Password is hashed with a per-player salt.
  */
 function registerPlayer(d) {
   const name = String(d.name || '').trim();
   const pwd  = String(d.password || '');
+  const code = String(d.leagueCode || '').trim().toUpperCase();
   if (!name)            return { ok: false, error: 'Name is required.' };
   if (pwd.length < 4)   return { ok: false, error: 'Password must be at least 4 characters.' };
+  if (!code)            return { ok: false, error: 'League code is required.' };
+
+  const leagueCode = String(readConfig_('LEAGUE_CODE') || '').toUpperCase();
+  if (!leagueCode)              return { ok: false, error: 'No league exists yet. Ask the admin to create one.' };
+  if (code !== leagueCode)      return { ok: false, error: 'Invalid league code.' };
 
   const sheet = getSheet('Players');
   const rows = sheet.getDataRange().getValues();
@@ -286,6 +295,48 @@ function registerPlayer(d) {
   sheet.appendRow([playerId, name, salt, hash, new Date().toISOString()]);
   audit('registerPlayer', { name, playerId });
   return { ok: true, playerId, name };
+}
+
+/**
+ * createLeague (admin only — the HTML gates this behind ADMIN_PW)
+ * Generates a fresh WC26-XXXX code and stores it + the league name in Config.
+ * Existing players remain registered; the code only gates new registrations.
+ */
+function createLeague(d) {
+  const name = String(d.name || '').trim();
+  if (!name) return { ok: false, error: 'League name is required.' };
+  const code = 'WC26-' + Math.random().toString(36).toUpperCase().slice(2, 6);
+  setConfig_('LEAGUE_NAME', name);
+  setConfig_('LEAGUE_CODE', code);
+  audit('createLeague', { name, code });
+  return { ok: true, name, code };
+}
+
+/** Returns the current league name + code (both empty strings if none exists). */
+function getLeague() {
+  return {
+    ok: true,
+    name: readConfig_('LEAGUE_NAME') || '',
+    code: readConfig_('LEAGUE_CODE') || ''
+  };
+}
+
+/** Config helpers: upsert a Key/Value row in the Config tab. */
+function setConfig_(key, value) {
+  const sheet = getSheet('Config');
+  const rows = sheet.getDataRange().getValues();
+  for (let i = 1; i < rows.length; i++) {
+    if (String(rows[i][0]) === key) { sheet.getRange(i + 1, 2).setValue(value); return; }
+  }
+  sheet.appendRow([key, value]);
+}
+
+function readConfig_(key) {
+  const rows = getSheet('Config').getDataRange().getValues();
+  for (let i = 1; i < rows.length; i++) {
+    if (String(rows[i][0]) === key) return rows[i][1];
+  }
+  return null;
 }
 
 /**
