@@ -15,7 +15,7 @@ const NAV = [
 
 export function Header() {
   const pathname  = usePathname();
-  const { user, isAdmin, refresh } = useAuth();
+  const { user, isAdmin, wallet, refresh } = useAuth();
   const { toast } = useToast();
 
   async function handleAdminLogout() {
@@ -52,7 +52,7 @@ export function Header() {
         </nav>
         {/* Wallet chip is for logged-in players only (admins have no wallet). */}
         {user && !isAdmin && (
-          <div className="wallet-chip">🏅 <b>—</b> pts</div>
+          <div className="wallet-chip">🏅 <b>{wallet ?? '—'}</b> pts</div>
         )}
         {/* Admin chip is only shown to actual admins. Non-admins reach the admin
             login form by navigating to /admin directly. */}

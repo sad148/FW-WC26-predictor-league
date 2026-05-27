@@ -55,7 +55,7 @@ export default function HomePage() {
         <div className="how-card">
           <div className="how-icon">🎯</div>
           <div className="how-h">4 Questions Per Match</div>
-          <p className="how-p">Q1 Result · Q2 First Scorer · Q3 Goals O/U · Q4 Clean Sheet. Wager up to 10 pts total per match.</p>
+          <p className="how-p">Q1 Result · Q2 First Scorer · Q3 Goals O/U · Q4 Total Cards. Wager up to 10 pts total per match.</p>
         </div>
         <div className="how-card">
           <div className="how-icon">📈</div>

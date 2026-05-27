@@ -1,15 +1,264 @@
+'use client';
+
+import Link from 'next/link';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { api, type Bet, type Match } from '@/lib/api';
+import { useAuth, useToast } from '../providers';
+
+type Filter = 'all' | 'group' | 'knockout' | 'upcoming' | 'live';
+
+const STATUS_LABEL: Record<Match['status'], { cls: string; text: string }> = {
+  upcoming: { cls: 'st-up',   text: 'UPCOMING' },
+  live:     { cls: 'st-live', text: '● LIVE' },
+  complete: { cls: 'st-done', text: '✓ FULL TIME' },
+};
+
+const Q1 = ['Home Win', 'Draw', 'Away Win'] as const;
+const Q3 = ['0–1 Goals', '2–3 Goals', '4+ Goals'] as const;
+const Q4 = ['0–2 Cards', '3–5 Cards', '6+ Cards'] as const;
+
+interface Draft {
+  q1?: string;
+  q2?: string;
+  q3?: string;
+  q4?: string;
+  wager: number;
+}
+
 export default function MatchesPage() {
+  const { user, isAdmin, refresh } = useAuth();
+  const { toast }          = useToast();
+  const [matches, setMatches] = useState<Match[]>([]);
+  const [bets, setBets]       = useState<Bet[]>([]);
+  const [filter, setFilter]   = useState<Filter>('all');
+  const [drafts, setDrafts]   = useState<Record<number, Draft>>({});
+  const [submitting, setSub]  = useState<number | null>(null);
+
+  const loadFixtures = useCallback(async () => {
+    try {
+      const r = await api.fixtures();
+      setMatches(r.matches);
+    } catch (e) { toast('Error', (e as Error).message); }
+  }, [toast]);
+
+  const loadBets = useCallback(async () => {
+    if (!user || isAdmin) { setBets([]); return; }
+    try {
+      const r = await api.myBets();
+      setBets(r.bets);
+    } catch { /* not logged in, ignore */ }
+  }, [user, isAdmin, toast]);
+
+  useEffect(() => { loadFixtures(); }, [loadFixtures]);
+  useEffect(() => { loadBets();     }, [loadBets]);
+
+  const betByMatch = useMemo(() => {
+    const m = new Map<number, Bet>();
+    bets.forEach(b => m.set(b.matchId, b));
+    return m;
+  }, [bets]);
+
+  const filtered = useMemo(() => matches.filter(m => {
+    if (filter === 'all') return true;
+    if (filter === 'group')    return m.phase === 'group';
+    if (filter === 'knockout') return m.phase === 'knockout';
+    if (filter === 'upcoming') return m.status === 'upcoming';
+    if (filter === 'live')     return m.status === 'live';
+    return true;
+  }), [matches, filter]);
+
+  function setDraft(matchId: number, patch: Partial<Draft>) {
+    setDrafts(d => ({
+      ...d,
+      [matchId]: { wager: 2, ...d[matchId], ...patch },
+    }));
+  }
+
+  async function submit(matchId: number) {
+    if (!user) { toast('Sign in first', 'Open Account to log in or register.'); return; }
+    if (isAdmin) { toast('Admin can\'t bet', 'Register a separate player account.'); return; }
+    const draft = drafts[matchId] || { wager: 2 };
+    if (!draft.q1 && !draft.q2 && !draft.q3 && !draft.q4) {
+      toast('No predictions!', 'Select at least one answer.');
+      return;
+    }
+    setSub(matchId);
+    try {
+      await api.placeBet({
+        matchId,
+        q1: draft.q1, q2: draft.q2, q3: draft.q3, q4: draft.q4,
+        wager: draft.wager,
+      });
+      toast('Bet placed! 🎯', `${draft.wager} pts wagered.`);
+      setDrafts(d => { const c = { ...d }; delete c[matchId]; return c; });
+      await loadBets();
+      await refresh();   // updates wallet chip in header
+    } catch (e) {
+      toast('Error', (e as Error).message);
+    } finally {
+      setSub(null);
+    }
+  }
+
   return (
     <section>
       <div className="sh">
         <div className="sh-title">MATCHES</div>
-        <div className="sh-sub">Coming next: full bet placement UI.</div>
+        <div className="sh-sub">Lock predictions before kickoff · 10 pts max per match</div>
       </div>
-      <div className="empty-state">
-        <div className="ei">🚧</div>
-        <h3>Under construction</h3>
-        <p>This page will list fixtures and let you place bets. Wired up next.</p>
+
+      <div className="phase-tabs">
+        {(['all','group','knockout','upcoming','live'] as Filter[]).map(f => (
+          <button
+            key={f}
+            type="button"
+            className={`ptab${filter === f ? ' on' : ''}`}
+            onClick={() => setFilter(f)}
+          >
+            {f === 'all' ? 'All'
+             : f === 'group' ? 'Group Stage'
+             : f === 'knockout' ? 'Knockout'
+             : f === 'upcoming' ? 'Upcoming'
+             : '🔴 Live'}
+          </button>
+        ))}
       </div>
+
+      {!user && (
+        <div style={{
+          background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 10,
+          padding: '12px 16px', marginBottom: '1.25rem', fontSize: 13, color: 'var(--off)'
+        }}>
+          You're not signed in — predictions are read-only. <Link href="/account" style={{ color: 'var(--gold)', textDecoration: 'underline' }}>Sign in</Link> to place bets.
+        </div>
+      )}
+      {isAdmin && (
+        <div style={{
+          background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 10,
+          padding: '12px 16px', marginBottom: '1.25rem', fontSize: 13, color: 'var(--can2)'
+        }}>
+          Admin accounts can't place bets. Log out of admin and register a player account to play.
+        </div>
+      )}
+
+      {filtered.length === 0 ? (
+        <div className="empty-state">
+          <div className="ei">📋</div>
+          <h3>No matches</h3>
+          <p>{matches.length === 0
+            ? 'No fixtures yet. Admin can seed sample fixtures from the Admin page.'
+            : 'No matches in this filter.'}
+          </p>
+        </div>
+      ) : (
+        <div className="matches-grid">
+          {filtered.map(m => {
+            const existing = betByMatch.get(m.id);
+            const locked   = m.status === 'complete';
+            const draft    = drafts[m.id] || { wager: 2 };
+            const canBet   = !!user && !isAdmin && !locked && !existing;
+            const status   = STATUS_LABEL[m.status];
+
+            return (
+              <div className="mc" key={m.id}>
+                <div className="mc-top">
+                  <span>
+                    {m.phase === 'group' ? `Group ${m.groupName || '?'}` : (m.groupName || 'Knockout')}
+                    {' · '}{m.date}
+                    {m.venue ? ` · ${m.venue}` : ''}
+                  </span>
+                  <span className={`st ${status.cls}`}>{status.text}</span>
+                </div>
+                <div className="mc-body">
+                  <div className="team">
+                    <span className="tf">{m.flagA || '⚽'}</span>
+                    <span className="tn">{m.teamA}</span>
+                  </div>
+                  <div className="mc-score">
+                    {m.status === 'upcoming'
+                      ? <div className="sc-vs">VS</div>
+                      : <div className="sc-nums">{m.scoreA ?? 0} – {m.scoreB ?? 0}</div>}
+                  </div>
+                  <div className="team">
+                    <span className="tf">{m.flagB || '⚽'}</span>
+                    <span className="tn">{m.teamB}</span>
+                  </div>
+                </div>
+
+                {!locked && (
+                  <>
+                    <div className="mc-preds">
+                      <PredRow label="Q1 Result"        opts={[...Q1]}
+                               value={existing?.q1 ?? draft.q1}
+                               disabled={!canBet}
+                               onPick={(v) => setDraft(m.id, { q1: v })} />
+                      <PredRow label="Q2 First Goal"    opts={[m.teamA, m.teamB, 'No Goal']}
+                               value={existing?.q2 ?? draft.q2}
+                               disabled={!canBet}
+                               onPick={(v) => setDraft(m.id, { q2: v })} />
+                      <PredRow label="Q3 Goals O/U"     opts={[...Q3]}
+                               value={existing?.q3 ?? draft.q3}
+                               disabled={!canBet}
+                               onPick={(v) => setDraft(m.id, { q3: v })} />
+                      <PredRow label="Q4 Total Cards"   opts={[...Q4]}
+                               value={existing?.q4 ?? draft.q4}
+                               disabled={!canBet}
+                               onPick={(v) => setDraft(m.id, { q4: v })} />
+                    </div>
+                    <div className="mc-wager">
+                      <span className="wlabel">Wager</span>
+                      <input
+                        className="winput"
+                        type="number" min={1} max={10}
+                        value={existing?.wager ?? draft.wager}
+                        disabled={!canBet}
+                        onChange={(e) => {
+                          const v = Math.min(10, Math.max(1, parseInt(e.target.value) || 1));
+                          setDraft(m.id, { wager: v });
+                        }}
+                      />
+                      <span className="wmax">pts / 10 max</span>
+                      {existing
+                        ? <span className="saved-badge">✓ Submitted</span>
+                        : <button
+                            className="wsubmit"
+                            disabled={!canBet || submitting === m.id}
+                            onClick={() => submit(m.id)}
+                          >{submitting === m.id ? 'Submitting…' : 'Place Bet'}</button>
+                      }
+                    </div>
+                  </>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
     </section>
+  );
+}
+
+function PredRow({ label, opts, value, disabled, onPick }: {
+  label: string;
+  opts: string[];
+  value?: string | null;
+  disabled: boolean;
+  onPick: (v: string) => void;
+}) {
+  return (
+    <div className="prow">
+      <span className="plabel">{label}</span>
+      <div className="popts">
+        {opts.map(o => (
+          <button
+            key={o}
+            type="button"
+            className={`popt${value === o ? ' sel' : ''}`}
+            disabled={disabled}
+            onClick={() => onPick(o)}
+          >{o}</button>
+        ))}
+      </div>
+    </div>
   );
 }

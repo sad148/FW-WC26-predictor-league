@@ -18,13 +18,24 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     if (isNaN(matchId)) return fail('Invalid match id.');
 
     const body = await req.json();
-    const scoreA = body.scoreA === '' || body.scoreA == null ? null : Number(body.scoreA);
-    const scoreB = body.scoreB === '' || body.scoreB == null ? null : Number(body.scoreB);
-    const status = String(body.status || 'upcoming');
+    const scoreA      = body.scoreA === '' || body.scoreA == null ? null : Number(body.scoreA);
+    const scoreB      = body.scoreB === '' || body.scoreB == null ? null : Number(body.scoreB);
+    const status      = String(body.status || 'upcoming');
+    const firstScorer = body.firstScorer === '' || body.firstScorer == null ? null : String(body.firstScorer);
+    const totalCards  = body.totalCards  === '' || body.totalCards  == null ? null : Number(body.totalCards);
 
-    const updates: { status: string; scoreA?: number; scoreB?: number } = { status };
+    const updates: {
+      status: string;
+      scoreA?: number;
+      scoreB?: number;
+      firstScorer?: string | null;
+      totalCards?:  number | null;
+    } = { status };
     if (scoreA !== null && !isNaN(scoreA)) updates.scoreA = scoreA;
     if (scoreB !== null && !isNaN(scoreB)) updates.scoreB = scoreB;
+    // null is a valid value here (clears the column); only skip the field if not provided.
+    if (Object.prototype.hasOwnProperty.call(body, 'firstScorer')) updates.firstScorer = firstScorer;
+    if (Object.prototype.hasOwnProperty.call(body, 'totalCards'))  updates.totalCards  = (totalCards !== null && isNaN(totalCards)) ? null : totalCards;
 
     const [row] = await db.update(fixtures).set(updates).where(eq(fixtures.id, matchId)).returning();
     if (!row) return fail('Match not found.', 404);
@@ -36,7 +47,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
 
     await db.insert(audit).values({
       action: 'saveResult',
-      detail: { matchId, scoreA, scoreB, status, settled },
+      detail: { matchId, scoreA, scoreB, status, firstScorer, totalCards, settled },
     });
     return ok({ match: row, settled });
   } catch (err) {

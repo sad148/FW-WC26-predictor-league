@@ -9,7 +9,8 @@ interface AuthState {
   user:      SessionUser | null;
   isAdmin:   boolean;
   isLoading: boolean;
-  refresh:   () => Promise<void>;
+  wallet:    number | null;        // null = no player session or not loaded yet
+  refresh:   () => Promise<void>;  // re-fetches session + wallet
   setSession: (user: SessionUser | null, isAdmin?: boolean) => void;
 }
 
@@ -41,13 +42,24 @@ export function Providers({ children }: { children: React.ReactNode }) {
   // Auth state
   const [user, setUser]       = useState<SessionUser | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [wallet, setWallet]   = useState<number | null>(null);
   const [isLoading, setLoad]  = useState(true);
 
   const refresh = useCallback(async () => {
     try {
-      const res = await api.me();
-      setUser(res.user);
-      setIsAdmin(res.isAdmin);
+      const meRes = await api.me();
+      setUser(meRes.user);
+      setIsAdmin(meRes.isAdmin);
+      // Only fetch the leaderboard wallet for actual player sessions.
+      if (meRes.user && !meRes.isAdmin) {
+        try {
+          const lb = await api.leaderboard();
+          const mine = lb.leaderboard.find(p => p.playerId === meRes.user!.playerId);
+          setWallet(mine?.wallet ?? 100);
+        } catch { setWallet(100); }
+      } else {
+        setWallet(null);
+      }
     } finally {
       setLoad(false);
     }
@@ -71,7 +83,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, isAdmin, isLoading, refresh, setSession }}>
+    <AuthContext.Provider value={{ user, isAdmin, isLoading, wallet, refresh, setSession }}>
       <ToastContext.Provider value={{ toast }}>
         {children}
         <div className={`toast${toastData ? ' show' : ''}`}>

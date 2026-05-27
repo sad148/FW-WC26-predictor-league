@@ -32,6 +32,12 @@ export const fixtures = pgTable('fixtures', {
   scoreA:    integer('score_a'),
   scoreB:    integer('score_b'),
   status:    text('status').notNull().default('upcoming'),  // 'upcoming' | 'live' | 'complete'
+  // Admin-entered "correct answers" for the questions that aren't derivable from the score.
+  //   firstScorer: team name that scored first, 'No Goal', or null if not entered.    (Q2)
+  //   totalCards:  total yellow+red cards across both teams, or null if not entered.  (Q4)
+  // Q1 (result) and Q3 (goals O/U) are still derived from scoreA/scoreB at settle time.
+  firstScorer: text('first_scorer'),
+  totalCards:  integer('total_cards'),
 });
 
 // bets — replaces the Predictions tab. One bet per (user, match).
