@@ -35,7 +35,7 @@ export function Header() {
         <Link className="logo-wrap" href="/">
           <span className="logo-trophy">🏆</span>
           <div>
-            <div className="logo-text">WC26 PREDICTOR</div>
+            <div className="logo-text">FW PREDICTOR</div>
             <div className="logo-sub">We Are 26</div>
           </div>
         </Link>

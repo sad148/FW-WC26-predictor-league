@@ -50,7 +50,8 @@ export interface Match {
   venue: string | null;
   scoreA: number | null;
   scoreB: number | null;
-  status: 'upcoming' | 'live' | 'complete';
+  startTime: string | null;     // UTC ISO; betting opens at this moment
+  endTime:   string | null;     // UTC ISO; betting closes at this moment
   firstScorer: string | null;   // Admin-entered correct answer for Q2
   totalCards:  number | null;   // Admin-entered correct answer for Q4
 }
@@ -100,7 +101,7 @@ export const api = {
   fixtures: ()                                  => request<{ matches: Match[] }>('/api/fixtures'),
   addFixture: (b: Partial<Match> & { nameA: string; nameB: string }) =>
                                                    request<{ match: Match }>('/api/fixtures', { method: 'POST', body: JSON.stringify(b) }),
-  updateFixture: (id: number, b: { scoreA?: number | ''; scoreB?: number | ''; status: string; firstScorer?: string | null; totalCards?: number | '' | null }) =>
+  updateFixture: (id: number, b: { scoreA?: number | ''; scoreB?: number | ''; firstScorer?: string | null; totalCards?: number | '' | null; startTime?: string | null; endTime?: string | null }) =>
                                                    request<{ match: Match; settled: number }>(`/api/fixtures/${id}`, { method: 'PATCH', body: JSON.stringify(b) }),
 
   // Bets

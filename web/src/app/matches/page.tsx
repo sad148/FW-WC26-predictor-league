@@ -3,14 +3,17 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { api, type Bet, type Match } from '@/lib/api';
+import { formatLocal, matchState, MATCH_STATE_LABEL, type MatchState } from '@/lib/time';
 import { useAuth, useToast } from '../providers';
 
-type Filter = 'all' | 'group' | 'knockout' | 'upcoming' | 'live';
+type Filter = 'all' | 'group' | 'knockout' | 'open' | 'complete';
 
-const STATUS_LABEL: Record<Match['status'], { cls: string; text: string }> = {
-  upcoming: { cls: 'st-up',   text: 'UPCOMING' },
-  live:     { cls: 'st-live', text: '● LIVE' },
-  complete: { cls: 'st-done', text: '✓ FULL TIME' },
+const STATE_CLS: Record<MatchState, string> = {
+  unscheduled: 'st-up',
+  scheduled:   'st-up',
+  open:        'st-live',
+  closed:      'st-up',
+  complete:    'st-done',
 };
 
 const Q1 = ['Home Win', 'Draw', 'Away Win'] as const;
@@ -58,14 +61,19 @@ export default function MatchesPage() {
     return m;
   }, [bets]);
 
+  // Rebind 'now' once per render — that's enough to flip a card from "open" to "closed"
+  // when the user reloads. (Polling for real-time transitions is out of scope here.)
+  const now = Date.now();
+
   const filtered = useMemo(() => matches.filter(m => {
-    if (filter === 'all') return true;
+    const state = matchState(m, now);
+    if (filter === 'all')      return true;
     if (filter === 'group')    return m.phase === 'group';
     if (filter === 'knockout') return m.phase === 'knockout';
-    if (filter === 'upcoming') return m.status === 'upcoming';
-    if (filter === 'live')     return m.status === 'live';
+    if (filter === 'open')     return state === 'open';
+    if (filter === 'complete') return state === 'complete';
     return true;
-  }), [matches, filter]);
+  }), [matches, filter, now]);
 
   function setDraft(matchId: number, patch: Partial<Draft>) {
     setDrafts(d => {
@@ -108,7 +116,7 @@ export default function MatchesPage() {
       </div>
 
       <div className="phase-tabs">
-        {(['all','group','knockout','upcoming','live'] as Filter[]).map(f => (
+        {(['all','group','knockout','open','complete'] as Filter[]).map(f => (
           <button
             key={f}
             type="button"
@@ -118,8 +126,8 @@ export default function MatchesPage() {
             {f === 'all' ? 'All'
              : f === 'group' ? 'Group Stage'
              : f === 'knockout' ? 'Knockout'
-             : f === 'upcoming' ? 'Upcoming'
-             : '🔴 Live'}
+             : f === 'open' ? '● Open Now'
+             : '✓ Completed'}
           </button>
         ))}
       </div>
@@ -154,20 +162,19 @@ export default function MatchesPage() {
         <div className="matches-grid">
           {filtered.map(m => {
             const existing = betByMatch.get(m.id);
-            const locked   = m.status === 'complete';
+            const state    = matchState(m, now);
             const draft    = drafts[m.id] || { wager: 2 };
-            const canBet   = !!user && !isAdmin && !locked && !existing;
-            const status   = STATUS_LABEL[m.status];
+            const canBet   = !!user && !isAdmin && state === 'open' && !existing;
+            const showForm = state !== 'complete';
 
             return (
               <div className="mc" key={m.id}>
                 <div className="mc-top">
                   <span>
                     {m.phase === 'group' ? `Group ${m.groupName || '?'}` : (m.groupName || 'Knockout')}
-                    {' · '}{m.date}
                     {m.venue ? ` · ${m.venue}` : ''}
                   </span>
-                  <span className={`st ${status.cls}`}>{status.text}</span>
+                  <span className={`st ${STATE_CLS[state]}`}>{MATCH_STATE_LABEL[state]}</span>
                 </div>
                 <div className="mc-body">
                   <div className="team">
@@ -175,9 +182,9 @@ export default function MatchesPage() {
                     <span className="tn">{m.teamA}</span>
                   </div>
                   <div className="mc-score">
-                    {m.status === 'upcoming'
-                      ? <div className="sc-vs">VS</div>
-                      : <div className="sc-nums">{m.scoreA ?? 0} – {m.scoreB ?? 0}</div>}
+                    {state === 'complete'
+                      ? <div className="sc-nums">{m.scoreA ?? 0} – {m.scoreB ?? 0}</div>
+                      : <div className="sc-vs">VS</div>}
                   </div>
                   <div className="team">
                     <span className="tf">{m.flagB || '⚽'}</span>
@@ -185,7 +192,23 @@ export default function MatchesPage() {
                   </div>
                 </div>
 
-                {!locked && (
+                {/* Betting window in the user's local timezone. */}
+                <div style={{
+                  borderTop: '1px solid var(--border)',
+                  padding: '8px 14px',
+                  fontFamily: 'var(--font-cond)',
+                  fontSize: 12,
+                  color: 'var(--off)',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  flexWrap: 'wrap',
+                  gap: 8,
+                }}>
+                  <span>Opens: <strong style={{ color: 'var(--gold2)' }}>{formatLocal(m.startTime)}</strong></span>
+                  <span>Closes: <strong style={{ color: 'var(--gold2)' }}>{formatLocal(m.endTime)}</strong></span>
+                </div>
+
+                {showForm && (
                   <>
                     <div className="mc-preds">
                       <PredRow label="Q1 Result"        opts={[...Q1]}
@@ -224,7 +247,13 @@ export default function MatchesPage() {
                             className="wsubmit"
                             disabled={!canBet || submitting === m.id}
                             onClick={() => submit(m.id)}
-                          >{submitting === m.id ? 'Submitting…' : 'Place Bet'}</button>
+                          >{
+                            submitting === m.id ? 'Submitting…'
+                            : state === 'scheduled'   ? 'Opens later'
+                            : state === 'closed'      ? 'Closed'
+                            : state === 'unscheduled' ? 'Awaiting times'
+                            : 'Place Bet'
+                          }</button>
                       }
                     </div>
                   </>

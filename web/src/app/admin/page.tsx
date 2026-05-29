@@ -2,18 +2,27 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { api, type League, type Match } from '@/lib/api';
+import { localInputToUtc, utcToLocalInput } from '@/lib/time';
 import { useAuth, useToast } from '../providers';
 
 interface ResultDraft {
-  scoreA: string;
-  scoreB: string;
-  status: Match['status'];
+  scoreA:      string;
+  scoreB:      string;
   firstScorer: string;   // '' = not set
   totalCards:  string;   // '' = not set
+  startTime:   string;   // <input type="datetime-local"> value (local tz)
+  endTime:     string;   // <input type="datetime-local"> value (local tz)
 }
-interface FixtureDraft { nameA: string; nameB: string; date: string; phase: 'group' | 'knockout'; group: string; venue: string; }
+interface FixtureDraft {
+  nameA: string; nameB: string;
+  date: string; phase: 'group' | 'knockout'; group: string; venue: string;
+  startTime: string; endTime: string;   // local tz datetime-local strings
+}
 
-const EMPTY_FIXTURE: FixtureDraft = { nameA: '', nameB: '', date: '', phase: 'group', group: '', venue: '' };
+const EMPTY_FIXTURE: FixtureDraft = {
+  nameA: '', nameB: '', date: '', phase: 'group', group: '', venue: '',
+  startTime: '', endTime: '',
+};
 
 export default function AdminPage() {
   const { isAdmin, isLoading, refresh } = useAuth();
@@ -45,9 +54,10 @@ export default function AdminPage() {
     return drafts[m.id] ?? {
       scoreA:      m.scoreA      == null ? '' : String(m.scoreA),
       scoreB:      m.scoreB      == null ? '' : String(m.scoreB),
-      status:      m.status,
       firstScorer: m.firstScorer ?? '',
       totalCards:  m.totalCards  == null ? '' : String(m.totalCards),
+      startTime:   utcToLocalInput(m.startTime),
+      endTime:     utcToLocalInput(m.endTime),
     };
   }
 
@@ -67,9 +77,10 @@ export default function AdminPage() {
       const res = await api.updateFixture(m.id, {
         scoreA: sA,
         scoreB: sB,
-        status: d.status,
         firstScorer: fs,
         totalCards:  tc,
+        startTime:   localInputToUtc(d.startTime),
+        endTime:     localInputToUtc(d.endTime),
       });
       toast('✓ Saved', `${m.teamA} vs ${m.teamB}${res.settled ? ` · ${res.settled} bet(s) settled` : ''}.`);
       await loadFixtures();
@@ -94,6 +105,8 @@ export default function AdminPage() {
         phase: newFix.phase,
         groupName: newFix.group.trim() || null,
         venue: newFix.venue.trim() || undefined,
+        startTime: localInputToUtc(newFix.startTime),
+        endTime:   localInputToUtc(newFix.endTime),
       } as Parameters<typeof api.addFixture>[0]);
       toast('✓ Fixture added', `${newFix.nameA} vs ${newFix.nameB}`);
       setNewFix(EMPTY_FIXTURE);
@@ -224,24 +237,35 @@ export default function AdminPage() {
                   background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 8,
                   padding: '12px 14px',
                 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 10 }}>
-                    <div>
-                      <div style={{ fontFamily: 'var(--font-cond)', fontSize: 14, fontWeight: 700 }}>
-                        {m.flagA || '⚽'} {m.teamA} vs {m.teamB} {m.flagB || ''}
-                      </div>
-                      <div style={{ fontFamily: 'var(--font-cond)', fontSize: 12, color: 'var(--off)', marginTop: 2 }}>
-                        {m.date}{m.venue ? ` · ${m.venue}` : ''}
-                      </div>
+                  <div style={{ marginBottom: 10 }}>
+                    <div style={{ fontFamily: 'var(--font-cond)', fontSize: 14, fontWeight: 700 }}>
+                      {m.flagA || '⚽'} {m.teamA} vs {m.teamB} {m.flagB || ''}
                     </div>
-                    <select
-                      value={d.status}
-                      onChange={(e) => setResultDraft(m, { status: e.target.value as Match['status'] })}
-                      style={cellSelect}
-                    >
-                      <option value="upcoming">Upcoming</option>
-                      <option value="live">Live</option>
-                      <option value="complete">Complete</option>
-                    </select>
+                    <div style={{ fontFamily: 'var(--font-cond)', fontSize: 12, color: 'var(--off)', marginTop: 2 }}>
+                      {m.date}{m.venue ? ` · ${m.venue}` : ''}
+                    </div>
+                  </div>
+
+                  {/* Betting window — admin enters in their local tz; we convert to UTC on save. */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 10, marginBottom: 10 }}>
+                    <div>
+                      <div style={subLabel}>BETTING OPENS (your local tz)</div>
+                      <input
+                        type="datetime-local"
+                        value={d.startTime}
+                        onChange={(e) => setResultDraft(m, { startTime: e.target.value })}
+                        style={{ ...cellInput, width: '100%', marginTop: 3, textAlign: 'left' }}
+                      />
+                    </div>
+                    <div>
+                      <div style={subLabel}>BETTING CLOSES (your local tz)</div>
+                      <input
+                        type="datetime-local"
+                        value={d.endTime}
+                        onChange={(e) => setResultDraft(m, { endTime: e.target.value })}
+                        style={{ ...cellInput, width: '100%', marginTop: 3, textAlign: 'left' }}
+                      />
+                    </div>
                   </div>
 
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10, alignItems: 'end' }}>
@@ -341,6 +365,18 @@ export default function AdminPage() {
           <input className="finput" placeholder="e.g. MetLife Stadium, NJ"
                  value={newFix.venue}
                  onChange={(e) => setNewFix({ ...newFix, venue: e.target.value })} />
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+          <div className="fg"><label className="flabel">Betting Opens (your local tz)</label>
+            <input className="finput" type="datetime-local"
+                   value={newFix.startTime}
+                   onChange={(e) => setNewFix({ ...newFix, startTime: e.target.value })} />
+          </div>
+          <div className="fg"><label className="flabel">Betting Closes (your local tz)</label>
+            <input className="finput" type="datetime-local"
+                   value={newFix.endTime}
+                   onChange={(e) => setNewFix({ ...newFix, endTime: e.target.value })} />
+          </div>
         </div>
         <button className="btn-gold" style={{ width: '100%' }} disabled={addingFix} onClick={addFixture}>
           {addingFix ? 'Adding…' : 'Add Fixture'}

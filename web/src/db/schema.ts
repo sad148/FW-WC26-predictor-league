@@ -31,11 +31,18 @@ export const fixtures = pgTable('fixtures', {
   venue:     text('venue'),
   scoreA:    integer('score_a'),
   scoreB:    integer('score_b'),
-  status:    text('status').notNull().default('upcoming'),  // 'upcoming' | 'live' | 'complete'
+  // Legacy field — superseded by start/end times + score presence. Kept nullable
+  // for DB compat; no code reads it.
+  status:    text('status'),
+  // Betting window in UTC. Bets are accepted only while now is in [startTime, endTime).
+  // Display in the client is converted to the user's local timezone.
+  startTime: timestamp('start_time', { withTimezone: true }),
+  endTime:   timestamp('end_time',   { withTimezone: true }),
   // Admin-entered "correct answers" for the questions that aren't derivable from the score.
   //   firstScorer: team name that scored first, 'No Goal', or null if not entered.    (Q2)
   //   totalCards:  total yellow+red cards across both teams, or null if not entered.  (Q4)
   // Q1 (result) and Q3 (goals O/U) are still derived from scoreA/scoreB at settle time.
+  // A fixture is implicitly "complete" when both scoreA and scoreB are non-null.
   firstScorer: text('first_scorer'),
   totalCards:  integer('total_cards'),
 });

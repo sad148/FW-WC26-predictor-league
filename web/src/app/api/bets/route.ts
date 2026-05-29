@@ -37,8 +37,18 @@ export async function POST(req: NextRequest) {
     if (isNaN(wager) || wager < 1 || wager > 10) return fail('Wager must be between 1 and 10.');
 
     const [match] = await db.select().from(fixtures).where(eq(fixtures.id, matchId));
-    if (!match)                       return fail('Match not found.', 404);
-    if (match.status === 'complete')  return fail('Match already complete; no more bets.', 409);
+    if (!match) return fail('Match not found.', 404);
+
+    // Time-window gate (server is the source of truth; client is informational).
+    const now = new Date();
+    if (!match.startTime || !match.endTime) {
+      return fail('Betting window not set for this match yet.', 409);
+    }
+    if (now < match.startTime) return fail('Betting hasn\'t opened for this match yet.', 409);
+    if (now >= match.endTime)  return fail('Betting window has closed for this match.', 409);
+    if (match.scoreA !== null && match.scoreB !== null) {
+      return fail('Match result is in; no more bets.', 409);
+    }
 
     const existing = await db
       .select()

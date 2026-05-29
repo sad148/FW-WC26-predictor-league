@@ -24,6 +24,9 @@ export async function POST(req: NextRequest) {
     const teamB = String(body.nameB || body.teamB || '').trim();
     if (!teamA || !teamB) return fail('Both team names are required.');
 
+    const startTime = body.startTime ? new Date(String(body.startTime)) : null;
+    const endTime   = body.endTime   ? new Date(String(body.endTime))   : null;
+
     const [row] = await db
       .insert(fixtures)
       .values({
@@ -35,7 +38,7 @@ export async function POST(req: NextRequest) {
         flagA:     body.flagA || '⚽',
         flagB:     body.flagB || '⚽',
         venue:     body.venue || null,
-        status:    'upcoming',
+        startTime, endTime,
       })
       .returning();
 
