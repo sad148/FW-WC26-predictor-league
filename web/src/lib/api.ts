@@ -70,13 +70,15 @@ export interface Bet {
 }
 
 export interface LeaderboardRow {
-  playerId: string;
-  name: string;
-  wins: number;
-  losses: number;
-  pending: number;
-  wallet: number;
-  pts: number;
+  playerId:  string;
+  name:      string;
+  wins:      number;
+  losses:    number;
+  pending:   number;
+  wallet:    number;
+  matchPts:  number;   // sum of won match wagers
+  triviaPts: number;   // sum of question_answers.points_awarded
+  totalPts:  number;   // wallet + triviaPts (PRD §4 formula)
 }
 
 export interface League {
