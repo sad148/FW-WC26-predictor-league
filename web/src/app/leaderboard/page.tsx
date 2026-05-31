@@ -60,13 +60,14 @@ export default function LeaderboardPage() {
               <th>W / L</th>
               <th>Wallet</th>
               <th>Trivia</th>
+              <th>Bracket</th>
               <th>Total Pts</th>
             </tr>
           </thead>
           <tbody>
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={6}>
+                <td colSpan={7}>
                   <div className="empty-state">
                     <div className="ei">🏆</div>
                     <h3>No players yet</h3>
@@ -115,6 +116,15 @@ export default function LeaderboardPage() {
                       }}
                     >
                       {p.triviaPts ?? 0}
+                    </td>
+                    <td
+                      style={{
+                        fontFamily: "var(--font-cond)",
+                        fontSize: 13,
+                        color: "var(--mex2)",
+                      }}
+                    >
+                      {p.bracketPts ?? 0}
                     </td>
                     <td className="pts-cell">{p.totalPts ?? p.wallet}</td>
                   </tr>

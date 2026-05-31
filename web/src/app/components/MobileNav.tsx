@@ -39,6 +39,11 @@ const BOARD_ICON = (
     />
   </svg>
 );
+const BRACKET_ICON = (
+  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M3 6h4v4H3V6zM3 14h4v4H3v-4zM17 10h4v4h-4v-4zM7 8h4M7 16h4M11 12h6" />
+  </svg>
+);
 const BETS_ICON = (
   <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
     <path
@@ -76,6 +81,7 @@ const PLAYER_ITEMS: NavItem[] = [
   { href: "/", label: "Home", icon: HOME_ICON },
   { href: "/matches", label: "Matches", icon: MATCHES_ICON },
   { href: "/trivia", label: "Trivia", icon: TRIVIA_ICON },
+  { href: "/brackets", label: "Bracket", icon: BRACKET_ICON },
   { href: "/leaderboard", label: "Standings", icon: BOARD_ICON },
   { href: "/mybets", label: "My Bets", icon: BETS_ICON },
   { href: "/account", label: "Account", icon: ACCT_ICON },
@@ -85,6 +91,7 @@ const ADMIN_ITEMS: NavItem[] = [
   { href: "/", label: "Home", icon: HOME_ICON },
   { href: "/matches", label: "Matches", icon: MATCHES_ICON },
   { href: "/trivia", label: "Trivia", icon: TRIVIA_ICON },
+  { href: "/brackets", label: "Bracket", icon: BRACKET_ICON },
   { href: "/leaderboard", label: "Standings", icon: BOARD_ICON },
   { href: "/admin", label: "Admin", icon: ADMIN_ICON },
 ];

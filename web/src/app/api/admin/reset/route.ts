@@ -11,10 +11,10 @@ import { ok, handleError } from '@/lib/responses';
 export async function POST() {
   try {
     await requireAdmin();
-    await db.execute(sql`TRUNCATE TABLE question_answers, question_phases, questions, bets, fixtures, leagues, users, audit RESTART IDENTITY CASCADE`);
+    await db.execute(sql`TRUNCATE TABLE bracket_picks, bracket_phases, bracket_entries, question_answers, question_phases, questions, bets, fixtures, leagues, users, audit RESTART IDENTITY CASCADE`);
     await db.insert(audit).values({
       action: 'resetData',
-      detail: { tables: ['question_answers', 'question_phases', 'questions', 'bets', 'fixtures', 'leagues', 'users', 'audit'] },
+      detail: { tables: ['bracket_picks', 'bracket_phases', 'bracket_entries', 'question_answers', 'question_phases', 'questions', 'bets', 'fixtures', 'leagues', 'users', 'audit'] },
     });
     return ok({ message: 'All tables truncated.' });
   } catch (err) {

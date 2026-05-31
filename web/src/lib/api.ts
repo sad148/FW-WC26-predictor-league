@@ -87,7 +87,8 @@ export interface LeaderboardRow {
   wallet: number;
   matchPts: number; // sum of won match wagers
   triviaPts: number; // sum of question_answers.points_awarded
-  totalPts: number; // wallet + triviaPts (PRD §4 formula)
+  bracketPts: number; // sum of bracket_picks.points_awarded (3 pts each)
+  totalPts: number; // wallet + triviaPts + bracketPts (PRD §4 formula)
 }
 
 export interface Question {
@@ -112,6 +113,33 @@ export interface Answer {
   userId: number;
   questionId: number;
   answer: string;
+  outcome: "pending" | "win" | "loss";
+  pointsAwarded: number;
+  createdAt: string;
+}
+
+export interface BracketEntry {
+  id: number;
+  phase: number;
+  label: string;
+  teams: string[];
+  correctPick: string | null;
+  status: "open" | "settled";
+  sortOrder: number;
+  createdAt: string;
+}
+
+export interface BracketPhase {
+  phase: number;
+  startTime: string | null;
+  endTime: string | null;
+}
+
+export interface BracketPick {
+  id: number;
+  userId: number;
+  entryId: number;
+  pick: string;
   outcome: "pending" | "win" | "loss";
   pointsAwarded: number;
   createdAt: string;
@@ -224,6 +252,51 @@ export const api = {
   myAnswers: () => request<{ answers: Answer[] }>("/api/answers"),
   saveAnswer: (b: { questionId: number; answer: string }) =>
     request<{ answer: Answer }>("/api/answers", {
+      method: "POST",
+      body: JSON.stringify(b),
+    }),
+
+  // Bracket (Subsystem C)
+  bracketEntries: () => request<{ entries: BracketEntry[] }>("/api/bracket-entries"),
+  addBracketEntry: (b: {
+    label: string;
+    phase: number;
+    teams: string[];
+    sortOrder?: number;
+  }) =>
+    request<{ entry: BracketEntry }>("/api/bracket-entries", {
+      method: "POST",
+      body: JSON.stringify(b),
+    }),
+  updateBracketEntry: (
+    id: number,
+    b: Partial<{
+      label: string;
+      phase: number;
+      teams: string[];
+      sortOrder: number;
+      correctPick: string | null;
+      status: "open" | "settled";
+    }>,
+  ) =>
+    request<{ entry: BracketEntry; settled: number }>(
+      `/api/bracket-entries/${id}`,
+      { method: "PATCH", body: JSON.stringify(b) },
+    ),
+  bracketPhases: () =>
+    request<{ phases: BracketPhase[] }>("/api/bracket-phases"),
+  setBracketPhase: (b: {
+    phase: number;
+    startTime: string | null;
+    endTime: string | null;
+  }) =>
+    request<{ phase: BracketPhase }>("/api/bracket-phases", {
+      method: "PUT",
+      body: JSON.stringify(b),
+    }),
+  myBracketPicks: () => request<{ picks: BracketPick[] }>("/api/bracket-picks"),
+  saveBracketPick: (b: { entryId: number; pick: string }) =>
+    request<{ pick: BracketPick }>("/api/bracket-picks", {
       method: "POST",
       body: JSON.stringify(b),
     }),

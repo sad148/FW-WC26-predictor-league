@@ -1,31 +1,30 @@
-'use client';
+"use client";
 
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { api } from '@/lib/api';
-import { useAuth, useToast } from '../providers';
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { api } from "@/lib/api";
+import { useAuth, useToast } from "../providers";
 
 // Nav shown to regular players and guests
 const PLAYER_NAV = [
-  { href: '/',            label: 'Home' },
-  { href: '/matches',     label: 'Matches' },
-  { href: '/trivia',      label: 'Trivia' },
-  { href: '/leaderboard', label: 'Leaderboard' },
-  { href: '/mybets',      label: 'My Bets' },
-  { href: '/account',     label: 'Account' },
+  { href: "/", label: "Home" },
+  { href: "/matches", label: "Matches" },
+  { href: "/trivia", label: "Trivia" },
+  { href: "/brackets", label: "Bracket" },
+  { href: "/leaderboard", label: "Leaderboard" },
+  { href: "/mybets", label: "My Bets" },
+  { href: "/account", label: "Account" },
 ];
 
 // Nav shown to admins — no My Bets / Account (irrelevant for admin sessions)
 const ADMIN_NAV = [
-  { href: '/',            label: 'Home' },
-  { href: '/matches',     label: 'Matches' },
-  { href: '/trivia',      label: 'Trivia' },
-  { href: '/leaderboard', label: 'Leaderboard' },
-  { href: '/admin',       label: 'Admin' },
+  { href: "/leaderboard", label: "Leaderboard" },
+  { href: "/brackets", label: "Bracket" },
+  { href: "/admin", label: "Admin" },
 ];
 
 export function Header() {
-  const pathname  = usePathname();
+  const pathname = usePathname();
   const { user, isAdmin, wallet, refresh } = useAuth();
   const { toast } = useToast();
   const nav = isAdmin ? ADMIN_NAV : PLAYER_NAV;
@@ -34,9 +33,9 @@ export function Header() {
     try {
       await api.adminLogout();
       await refresh();
-      toast('Admin logged out');
+      toast("Admin logged out");
     } catch (e) {
-      toast('Error', (e as Error).message);
+      toast("Error", (e as Error).message);
     }
   }
 
@@ -52,11 +51,11 @@ export function Header() {
           </div>
         </Link>
         <nav className="hdr-nav">
-          {nav.map(item => (
+          {nav.map((item) => (
             <Link
               key={item.href}
               href={item.href}
-              className={`nav-btn${pathname === item.href ? ' on' : ''}`}
+              className={`nav-btn${pathname === item.href ? " on" : ""}`}
             >
               {item.label}
             </Link>
@@ -64,11 +63,17 @@ export function Header() {
         </nav>
         {/* Wallet chip — players only */}
         {user && !isAdmin && (
-          <div className="wallet-chip">🏅 <b>{wallet ?? '—'}</b> pts</div>
+          <div className="wallet-chip">
+            🏅 <b>{wallet ?? "—"}</b> pts
+          </div>
         )}
         {/* Admin chip — click to log out of admin session */}
         {isAdmin && (
-          <div className="admin-chip" onClick={handleAdminLogout} style={{ cursor: 'pointer' }}>
+          <div
+            className="admin-chip"
+            onClick={handleAdminLogout}
+            style={{ cursor: "pointer" }}
+          >
             ⚙ Admin · Log out
           </div>
         )}

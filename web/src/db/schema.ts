@@ -99,6 +99,40 @@ export const questionAnswers = pgTable('question_answers', {
   userQuestionUnique: unique('answers_user_question_unique').on(t.userId, t.questionId),
 }));
 
+// bracket_entries — Subsystem C: one predictable slot in the bracket.
+// Phase 1 = group standing slots (e.g. "Group A – 1st Place").
+// Phase 2 = knockout match slots (e.g. "R16 Match 1 Winner").
+export const bracketEntries = pgTable('bracket_entries', {
+  id:          serial('id').primaryKey(),
+  phase:       integer('phase').notNull(),                           // 1 = group, 2 = knockout
+  label:       text('label').notNull(),                              // display name
+  teams:       jsonb('teams').$type<string[]>().notNull(),           // selectable options
+  correctPick: text('correct_pick'),                                 // null until admin settles
+  status:      text('status').notNull().default('open'),             // 'open' | 'settled'
+  sortOrder:   integer('sort_order').notNull().default(0),
+  createdAt:   timestamp('created_at').defaultNow().notNull(),
+});
+
+// bracket_phases — single submission window per phase (1 = group, 2 = knockout). UTC.
+export const bracketPhases = pgTable('bracket_phases', {
+  phase:     integer('phase').primaryKey(),
+  startTime: timestamp('start_time', { withTimezone: true }),
+  endTime:   timestamp('end_time',   { withTimezone: true }),
+});
+
+// bracket_picks — player's prediction per bracket entry. One per (user, entry).
+export const bracketPicks = pgTable('bracket_picks', {
+  id:            serial('id').primaryKey(),
+  userId:        integer('user_id').notNull().references(() => users.id,          { onDelete: 'cascade' }),
+  entryId:       integer('entry_id').notNull().references(() => bracketEntries.id, { onDelete: 'cascade' }),
+  pick:          text('pick').notNull(),
+  outcome:       text('outcome').notNull().default('pending'),       // 'pending' | 'win' | 'loss'
+  pointsAwarded: integer('points_awarded').notNull().default(0),     // always 3 when win (PRD §3 C)
+  createdAt:     timestamp('created_at').defaultNow().notNull(),
+}, (t) => ({
+  userEntryUnique: unique('bracket_picks_user_entry_unique').on(t.userId, t.entryId),
+}));
+
 // audit — append-only log of state-changing actions.
 export const audit = pgTable('audit', {
   id:        serial('id').primaryKey(),

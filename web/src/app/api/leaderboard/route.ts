@@ -6,23 +6,25 @@ import { ok, handleError } from '@/lib/responses';
  * GET /api/leaderboard — aggregates per user.
  *   wallet     = 100 + sum(win match wagers) - sum(loss match wagers)
  *   matchPts   = sum(win match wagers)
- *   triviaPts  = sum(question_answers.points_awarded)
- *   totalPts   = wallet + triviaPts                 (per PRD §4)
+ *   triviaPts  = sum(question_answers.points_awarded)   (Subsystem B)
+ *   bracketPts = sum(bracket_picks.points_awarded)      (Subsystem C, 3 pts per correct pick)
+ *   totalPts   = wallet + triviaPts + bracketPts        (per PRD §4)
  * Ranked by totalPts desc, then wins desc (PRD primary tie-breaker), then wallet desc.
- * LATERAL subqueries avoid a bets×answers cross-product.
+ * LATERAL subqueries avoid cross-products.
  */
 export async function GET() {
   try {
     const result = await db.execute<{
-      playerId:  string;
-      name:      string;
-      wins:      number;
-      losses:    number;
-      pending:   number;
-      wallet:    number;
-      matchPts:  number;
-      triviaPts: number;
-      totalPts:  number;
+      playerId:   string;
+      name:       string;
+      wins:       number;
+      losses:     number;
+      pending:    number;
+      wallet:     number;
+      matchPts:   number;
+      triviaPts:  number;
+      bracketPts: number;
+      totalPts:   number;
     }>(sql`
       SELECT
         u.player_id     AS "playerId",
@@ -33,7 +35,8 @@ export async function GET() {
         m.wallet        AS "wallet",
         m.match_pts     AS "matchPts",
         t.trivia_pts    AS "triviaPts",
-        (m.wallet + t.trivia_pts)::int AS "totalPts"
+        b.bracket_pts   AS "bracketPts",
+        (m.wallet + t.trivia_pts + b.bracket_pts)::int AS "totalPts"
       FROM users u
       LEFT JOIN LATERAL (
         SELECT
@@ -51,6 +54,10 @@ export async function GET() {
         SELECT COALESCE(SUM(points_awarded), 0)::int AS trivia_pts
         FROM question_answers WHERE user_id = u.id AND outcome = 'win'
       ) t ON TRUE
+      LEFT JOIN LATERAL (
+        SELECT COALESCE(SUM(points_awarded), 0)::int AS bracket_pts
+        FROM bracket_picks WHERE user_id = u.id AND outcome = 'win'
+      ) b ON TRUE
       ORDER BY "totalPts" DESC, "wins" DESC, "wallet" DESC
     `);
     return ok({ leaderboard: result.rows });
