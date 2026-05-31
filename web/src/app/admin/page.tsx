@@ -350,7 +350,7 @@ export default function AdminPage() {
   }
 
   async function reset() {
-    if (!confirm('⚠ Truncate ALL tables (users, leagues, fixtures, bets, audit). Continue?')) return;
+    if (!confirm('⚠ Clear bets, trivia, and bracket data? Users, leagues, and fixtures are kept.')) return;
     try {
       const res = await api.adminReset();
       toast('✓ Reset', res.message);

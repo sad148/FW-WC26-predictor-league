@@ -1,22 +1,14 @@
 import { sql } from 'drizzle-orm';
 import { db } from '@/db/client';
-import { audit } from '@/db/schema';
 import { requireAdmin } from '@/lib/session';
 import { ok, handleError } from '@/lib/responses';
 
-/**
- * POST /api/admin/reset — testing-phase nuke: truncate every table.
- * Mirrors the Apps Script resetData. Run only when you want to start clean.
- */
+/** POST /api/admin/reset — clears round-specific data only. Preserves users, leagues, fixtures, and audit. */
 export async function POST() {
   try {
     await requireAdmin();
-    await db.execute(sql`TRUNCATE TABLE bracket_picks, bracket_phases, bracket_entries, question_answers, question_phases, questions, bets, fixtures, leagues, users, audit RESTART IDENTITY CASCADE`);
-    await db.insert(audit).values({
-      action: 'resetData',
-      detail: { tables: ['bracket_picks', 'bracket_phases', 'bracket_entries', 'question_answers', 'question_phases', 'questions', 'bets', 'fixtures', 'leagues', 'users', 'audit'] },
-    });
-    return ok({ message: 'All tables truncated.' });
+    await db.execute(sql`TRUNCATE TABLE bracket_picks, bracket_phases, bracket_entries, question_answers, question_phases, questions, bets RESTART IDENTITY CASCADE`);
+    return ok({ message: 'Bets, trivia, and bracket data cleared.' });
   } catch (err) {
     return handleError(err);
   }
