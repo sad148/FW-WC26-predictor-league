@@ -4,7 +4,10 @@
  */
 
 export class ApiError extends Error {
-  constructor(public status: number, message: string) {
+  constructor(
+    public status: number,
+    message: string,
+  ) {
     super(message);
   }
 }
@@ -13,7 +16,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(path, {
     ...init,
     headers: {
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
       ...(init?.headers || {}),
     },
   });
@@ -24,7 +27,10 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     throw new ApiError(res.status, `Bad response (HTTP ${res.status})`);
   }
   if (!res.ok || json.ok === false) {
-    throw new ApiError(res.status, json.error || `Request failed (HTTP ${res.status})`);
+    throw new ApiError(
+      res.status,
+      json.error || `Request failed (HTTP ${res.status})`,
+    );
   }
   return json as T;
 }
@@ -32,11 +38,14 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 // ── Types ────────────────────────────────────────────────────────────
 
 export interface SessionUser {
-  userId:   number;
+  userId: number;
   playerId: string;
-  name:     string;
+  name: string;
 }
-export interface MeResponse { user: SessionUser | null; isAdmin: boolean; }
+export interface MeResponse {
+  user: SessionUser | null;
+  isAdmin: boolean;
+}
 
 export interface Match {
   id: number;
@@ -50,10 +59,10 @@ export interface Match {
   venue: string | null;
   scoreA: number | null;
   scoreB: number | null;
-  startTime: string | null;     // UTC ISO; betting opens at this moment
-  endTime:   string | null;     // UTC ISO; betting closes at this moment
-  firstScorer: string | null;   // Admin-entered correct answer for Q2
-  totalCards:  number | null;   // Admin-entered correct answer for Q4
+  startTime: string | null; // UTC ISO; betting opens at this moment
+  endTime: string | null; // UTC ISO; betting closes at this moment
+  firstScorer: string | null; // Admin-entered correct answer for Q2
+  totalCards: number | null; // Admin-entered correct answer for Q4
 }
 
 export interface Bet {
@@ -65,20 +74,20 @@ export interface Bet {
   q3: string | null;
   q4: string | null;
   wager: number;
-  outcome: 'pending' | 'win' | 'loss';
+  outcome: "pending" | "win" | "loss";
   createdAt: string;
 }
 
 export interface LeaderboardRow {
-  playerId:  string;
-  name:      string;
-  wins:      number;
-  losses:    number;
-  pending:   number;
-  wallet:    number;
-  matchPts:  number;   // sum of won match wagers
-  triviaPts: number;   // sum of question_answers.points_awarded
-  totalPts:  number;   // wallet + triviaPts (PRD §4 formula)
+  playerId: string;
+  name: string;
+  wins: number;
+  losses: number;
+  pending: number;
+  wallet: number;
+  matchPts: number; // sum of won match wagers
+  triviaPts: number; // sum of question_answers.points_awarded
+  totalPts: number; // wallet + triviaPts (PRD §4 formula)
 }
 
 export interface League {
@@ -92,35 +101,125 @@ export interface League {
 
 export const api = {
   // Auth
-  me:       ()                                  => request<MeResponse>('/api/auth/me'),
+  me: () => request<MeResponse>("/api/auth/me"),
   register: (b: { name: string; password: string; leagueCode: string }) =>
-                                                   request<{ playerId: string; name: string }>('/api/auth/register', { method: 'POST', body: JSON.stringify(b) }),
-  login:    (b: { name: string; password: string }) =>
-                                                   request<{ playerId: string; name: string }>('/api/auth/login', { method: 'POST', body: JSON.stringify(b) }),
-  logout:   ()                                  => request<{}>('/api/auth/logout', { method: 'POST' }),
+    request<{ playerId: string; name: string }>("/api/auth/register", {
+      method: "POST",
+      body: JSON.stringify(b),
+    }),
+  login: (b: { name: string; password: string }) =>
+    request<{ playerId: string; name: string }>("/api/auth/login", {
+      method: "POST",
+      body: JSON.stringify(b),
+    }),
+  logout: () => request<{}>("/api/auth/logout", { method: "POST" }),
 
   // Fixtures
-  fixtures: ()                                  => request<{ matches: Match[] }>('/api/fixtures'),
+  fixtures: () => request<{ matches: Match[] }>("/api/fixtures"),
   addFixture: (b: Partial<Match> & { nameA: string; nameB: string }) =>
-                                                   request<{ match: Match }>('/api/fixtures', { method: 'POST', body: JSON.stringify(b) }),
-  updateFixture: (id: number, b: { scoreA?: number | ''; scoreB?: number | ''; firstScorer?: string | null; totalCards?: number | '' | null; startTime?: string | null; endTime?: string | null }) =>
-                                                   request<{ match: Match; settled: number }>(`/api/fixtures/${id}`, { method: 'PATCH', body: JSON.stringify(b) }),
+    request<{ match: Match }>("/api/fixtures", {
+      method: "POST",
+      body: JSON.stringify(b),
+    }),
+  updateFixture: (
+    id: number,
+    b: {
+      scoreA?: number | "";
+      scoreB?: number | "";
+      firstScorer?: string | null;
+      totalCards?: number | "" | null;
+      startTime?: string | null;
+      endTime?: string | null;
+    },
+  ) =>
+    request<{ match: Match; settled: number }>(`/api/fixtures/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(b),
+    }),
 
   // Bets
-  myBets:   ()                                  => request<{ bets: Bet[] }>('/api/bets'),
-  placeBet: (b: { matchId: number; q1?: string; q2?: string; q3?: string; q4?: string; wager: number }) =>
-                                                   request<{ bet: Bet }>('/api/bets', { method: 'POST', body: JSON.stringify(b) }),
+  myBets: () => request<{ bets: Bet[] }>("/api/bets"),
+  placeBet: (b: {
+    matchId: number;
+    q1?: string;
+    q2?: string;
+    q3?: string;
+    q4?: string;
+    wager: number;
+  }) =>
+    request<{ bet: Bet }>("/api/bets", {
+      method: "POST",
+      body: JSON.stringify(b),
+    }),
 
   // Leaderboard
-  leaderboard: ()                               => request<{ leaderboard: LeaderboardRow[] }>('/api/leaderboard'),
+  leaderboard: () =>
+    request<{ leaderboard: LeaderboardRow[] }>("/api/leaderboard"),
+
+  // Trivia (Subsystem B)
+  questions: () => request<{ questions: Question[] }>("/api/questions"),
+  addQuestion: (b: {
+    text: string;
+    phase: number;
+    pointValue: number;
+    options?: string[] | null;
+  }) =>
+    request<{ question: Question }>("/api/questions", {
+      method: "POST",
+      body: JSON.stringify(b),
+    }),
+  updateQuestion: (
+    id: number,
+    b: Partial<{
+      text: string;
+      phase: number;
+      pointValue: number;
+      options: string[] | null;
+      winningAnswer: string | null;
+      status: "open" | "settled";
+    }>,
+  ) =>
+    request<{ question: Question; settled: number }>(`/api/questions/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(b),
+    }),
+  questionPhases: () =>
+    request<{ phases: PhaseWindow[] }>("/api/question-phases"),
+  setQuestionPhase: (b: {
+    phase: number;
+    startTime: string | null;
+    endTime: string | null;
+  }) =>
+    request<{ phase: PhaseWindow }>("/api/question-phases", {
+      method: "PUT",
+      body: JSON.stringify(b),
+    }),
+  myAnswers: () => request<{ answers: Answer[] }>("/api/answers"),
+  saveAnswer: (b: { questionId: number; answer: string }) =>
+    request<{ answer: Answer }>("/api/answers", {
+      method: "POST",
+      body: JSON.stringify(b),
+    }),
 
   // League
-  league:        ()                             => request<{ league: League | null }>('/api/league'),
-  createLeague:  (b: { name: string })          => request<{ league: League }>('/api/league', { method: 'POST', body: JSON.stringify(b) }),
+  league: () => request<{ league: League | null }>("/api/league"),
+  createLeague: (b: { name: string }) =>
+    request<{ league: League }>("/api/league", {
+      method: "POST",
+      body: JSON.stringify(b),
+    }),
 
   // Admin
-  adminLogin:    (b: { password: string })      => request<{}>('/api/admin/login', { method: 'POST', body: JSON.stringify(b) }),
-  adminLogout:   ()                             => request<{}>('/api/admin/logout', { method: 'POST' }),
-  adminReset:    ()                             => request<{ message: string }>('/api/admin/reset', { method: 'POST' }),
-  seedFixtures:  ()                             => request<{ message: string; count: number }>('/api/admin/seed-fixtures', { method: 'POST' }),
+  adminLogin: (b: { password: string }) =>
+    request<{}>("/api/admin/login", {
+      method: "POST",
+      body: JSON.stringify(b),
+    }),
+  adminLogout: () => request<{}>("/api/admin/logout", { method: "POST" }),
+  adminReset: () =>
+    request<{ message: string }>("/api/admin/reset", { method: "POST" }),
+  seedFixtures: () =>
+    request<{ message: string; count: number }>("/api/admin/seed-fixtures", {
+      method: "POST",
+    }),
 };

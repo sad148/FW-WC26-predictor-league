@@ -1,13 +1,30 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
-import { api, type LeaderboardRow } from '@/lib/api';
-import { useAuth } from '../providers';
+import { useEffect, useState } from "react";
+import { api, type LeaderboardRow } from "@/lib/api";
+import { useAuth } from "../providers";
 
-const AV_COLORS = ['#4A90D9','#E61D25','#C9A84C','#00a86b','#9B59B6','#1ABC9C','#E67E22','#7F8C8D'];
+const AV_COLORS = [
+  "#4A90D9",
+  "#E61D25",
+  "#C9A84C",
+  "#00a86b",
+  "#9B59B6",
+  "#1ABC9C",
+  "#E67E22",
+  "#7F8C8D",
+];
 
 function initials(name: string) {
-  return name.trim().split(/\s+/).map(s => s[0] || '').join('').slice(0, 2).toUpperCase() || '??';
+  return (
+    name
+      .trim()
+      .split(/\s+/)
+      .map((s) => s[0] || "")
+      .join("")
+      .slice(0, 2)
+      .toUpperCase() || "??"
+  );
 }
 function colorFor(name: string) {
   let h = 0;
@@ -20,14 +37,19 @@ export default function LeaderboardPage() {
   const [rows, setRows] = useState<LeaderboardRow[]>([]);
 
   useEffect(() => {
-    api.leaderboard().then(r => setRows(r.leaderboard)).catch(() => {});
+    api
+      .leaderboard()
+      .then((r) => setRows(r.leaderboard))
+      .catch(() => {});
   }, []);
 
   return (
     <section>
       <div className="sh">
         <div className="sh-title">LEADERBOARD</div>
-        <div className="sh-sub">Ranked by Total Pts · Tiebreaker: most correct match results</div>
+        <div className="sh-sub">
+          Ranked by Total Pts · Tiebreaker: most correct match results
+        </div>
       </div>
       <div className="lb-wrap">
         <table className="lb-table">
@@ -43,34 +65,62 @@ export default function LeaderboardPage() {
           </thead>
           <tbody>
             {rows.length === 0 ? (
-              <tr><td colSpan={6}>
-                <div className="empty-state">
-                  <div className="ei">🏆</div>
-                  <h3>No players yet</h3>
-                  <p>Register on Account to be the first.</p>
-                </div>
-              </td></tr>
-            ) : rows.map((p, i) => {
-              const rc = i === 0 ? 'r1' : i === 1 ? 'r2' : i === 2 ? 'r3' : 'rn';
-              const isMe = p.playerId === user?.playerId;
-              const color = colorFor(p.name);
-              return (
-                <tr key={p.playerId} className={isMe ? 'me-row' : ''}>
-                  <td><span className={`rank ${rc}`}>{i + 1}</span></td>
-                  <td>
-                    <div className="p-row">
-                      <div className="av" style={{ background: `${color}22`, color }}>{initials(p.name)}</div>
-                      <span>{p.name}</span>
-                      {isMe && <span className="me-tag">YOU</span>}
-                    </div>
-                  </td>
-                  <td style={{ fontFamily: 'var(--font-cond)', fontSize: 13, color: 'var(--off)' }}>{p.wins}W {p.losses}L</td>
-                  <td className="wallet-cell">{p.wallet} pts</td>
-                  <td style={{ fontFamily: 'var(--font-cond)', fontSize: 13, color: 'var(--gold2)' }}>{p.triviaPts ?? 0}</td>
-                  <td className="pts-cell">{p.totalPts ?? p.wallet}</td>
-                </tr>
-              );
-            })}
+              <tr>
+                <td colSpan={6}>
+                  <div className="empty-state">
+                    <div className="ei">🏆</div>
+                    <h3>No players yet</h3>
+                    <p>Register on Account to be the first.</p>
+                  </div>
+                </td>
+              </tr>
+            ) : (
+              rows.map((p, i) => {
+                const rc =
+                  i === 0 ? "r1" : i === 1 ? "r2" : i === 2 ? "r3" : "rn";
+                const isMe = p.playerId === user?.playerId;
+                const color = colorFor(p.name);
+                return (
+                  <tr key={p.playerId} className={isMe ? "me-row" : ""}>
+                    <td>
+                      <span className={`rank ${rc}`}>{i + 1}</span>
+                    </td>
+                    <td>
+                      <div className="p-row">
+                        <div
+                          className="av"
+                          style={{ background: `${color}22`, color }}
+                        >
+                          {initials(p.name)}
+                        </div>
+                        <span>{p.name}</span>
+                        {isMe && <span className="me-tag">YOU</span>}
+                      </div>
+                    </td>
+                    <td
+                      style={{
+                        fontFamily: "var(--font-cond)",
+                        fontSize: 13,
+                        color: "var(--off)",
+                      }}
+                    >
+                      {p.wins}W {p.losses}L
+                    </td>
+                    <td className="wallet-cell">{p.wallet} pts</td>
+                    <td
+                      style={{
+                        fontFamily: "var(--font-cond)",
+                        fontSize: 13,
+                        color: "var(--gold2)",
+                      }}
+                    >
+                      {p.triviaPts ?? 0}
+                    </td>
+                    <td className="pts-cell">{p.totalPts ?? p.wallet}</td>
+                  </tr>
+                );
+              })
+            )}
           </tbody>
         </table>
       </div>
