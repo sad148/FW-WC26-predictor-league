@@ -90,6 +90,33 @@ export interface LeaderboardRow {
   totalPts: number; // wallet + triviaPts (PRD §4 formula)
 }
 
+export interface Question {
+  id: number;
+  phase: number;
+  text: string;
+  options: string[] | null;
+  pointValue: number;
+  winningAnswer: string | null;
+  status: "open" | "settled";
+  createdAt: string;
+}
+
+export interface PhaseWindow {
+  phase: number;
+  startTime: string | null;
+  endTime: string | null;
+}
+
+export interface Answer {
+  id: number;
+  userId: number;
+  questionId: number;
+  answer: string;
+  outcome: "pending" | "win" | "loss";
+  pointsAwarded: number;
+  createdAt: string;
+}
+
 export interface League {
   id: number;
   name: string;
