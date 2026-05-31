@@ -5,18 +5,30 @@ import { usePathname } from 'next/navigation';
 import { api } from '@/lib/api';
 import { useAuth, useToast } from '../providers';
 
-const NAV = [
+// Nav shown to regular players and guests
+const PLAYER_NAV = [
   { href: '/',            label: 'Home' },
   { href: '/matches',     label: 'Matches' },
+  { href: '/trivia',      label: 'Trivia' },
   { href: '/leaderboard', label: 'Leaderboard' },
   { href: '/mybets',      label: 'My Bets' },
   { href: '/account',     label: 'Account' },
+];
+
+// Nav shown to admins — no My Bets / Account (irrelevant for admin sessions)
+const ADMIN_NAV = [
+  { href: '/',            label: 'Home' },
+  { href: '/matches',     label: 'Matches' },
+  { href: '/trivia',      label: 'Trivia' },
+  { href: '/leaderboard', label: 'Leaderboard' },
+  { href: '/admin',       label: 'Admin' },
 ];
 
 export function Header() {
   const pathname  = usePathname();
   const { user, isAdmin, wallet, refresh } = useAuth();
   const { toast } = useToast();
+  const nav = isAdmin ? ADMIN_NAV : PLAYER_NAV;
 
   async function handleAdminLogout() {
     try {
@@ -40,7 +52,7 @@ export function Header() {
           </div>
         </Link>
         <nav className="hdr-nav">
-          {NAV.map(item => (
+          {nav.map(item => (
             <Link
               key={item.href}
               href={item.href}
@@ -50,15 +62,14 @@ export function Header() {
             </Link>
           ))}
         </nav>
-        {/* Wallet chip is for logged-in players only (admins have no wallet). */}
+        {/* Wallet chip — players only */}
         {user && !isAdmin && (
           <div className="wallet-chip">🏅 <b>{wallet ?? '—'}</b> pts</div>
         )}
-        {/* Admin chip is only shown to actual admins. Non-admins reach the admin
-            login form by navigating to /admin directly. */}
+        {/* Admin chip — click to log out of admin session */}
         {isAdmin && (
-          <div className="admin-chip" onClick={handleAdminLogout}>
-            ⚙ Admin On
+          <div className="admin-chip" onClick={handleAdminLogout} style={{ cursor: 'pointer' }}>
+            ⚙ Admin · Log out
           </div>
         )}
       </div>

@@ -11,10 +11,13 @@ interface Preds {
 
 /**
  * Returns 'win' or 'loss' for a single bet.
- *   Q1 (result):    derived from scoreA/scoreB.
- *   Q2 (1st goal):  checked against admin-entered firstScorer (skipped if null).
- *   Q3 (goals O/U): derived from scoreA + scoreB.
- *   Q4 (cards):     checked against admin-entered totalCards (skipped if null).
+ * A bet WINS if at least one answered prediction is correct (any-correct rule).
+ * A bet LOSES only when every evaluatable answered prediction is wrong.
+ *
+ *   Q1 (result):    derived from scoreA/scoreB — always evaluatable.
+ *   Q2 (1st goal):  checked against admin-entered firstScorer — skipped if null.
+ *   Q3 (goals O/U): derived from scoreA + scoreB — always evaluatable.
+ *   Q4 (cards):     checked against admin-entered totalCards — skipped if null.
  */
 export function evaluateBet(
   preds: Preds,
@@ -24,22 +27,33 @@ export function evaluateBet(
   totalCards:  number | null = null,
 ): 'win' | 'loss' {
   const result = scoreA > scoreB ? 'Home Win' : scoreB > scoreA ? 'Away Win' : 'Draw';
-  if (preds.q1 && preds.q1 !== result) return 'loss';
+  const total  = scoreA + scoreB;
 
-  if (preds.q2 && firstScorer && preds.q2 !== firstScorer) return 'loss';
+  // Q1 — match result
+  if (preds.q1 && preds.q1 === result) return 'win';
 
-  const total = scoreA + scoreB;
-  if (preds.q3 === '0–1 Goals' && total > 1) return 'loss';
-  if (preds.q3 === '2–3 Goals' && (total < 2 || total > 3)) return 'loss';
-  if (preds.q3 === '4+ Goals' && total < 4) return 'loss';
+  // Q2 — first scorer (only evaluatable when admin has entered the answer)
+  if (preds.q2 && firstScorer && preds.q2 === firstScorer) return 'win';
 
-  if (preds.q4 && totalCards !== null) {
-    if (preds.q4 === '0–2 Cards' && totalCards > 2) return 'loss';
-    if (preds.q4 === '3–5 Cards' && (totalCards < 3 || totalCards > 5)) return 'loss';
-    if (preds.q4 === '6+ Cards'  && totalCards < 6) return 'loss';
+  // Q3 — goals over/under
+  if (preds.q3) {
+    const correct =
+      (preds.q3 === '0–1 Goals' && total <= 1) ||
+      (preds.q3 === '2–3 Goals' && total >= 2 && total <= 3) ||
+      (preds.q3 === '4+ Goals'  && total >= 4);
+    if (correct) return 'win';
   }
 
-  return 'win';
+  // Q4 — total cards (only evaluatable when admin has entered the answer)
+  if (preds.q4 && totalCards !== null) {
+    const correct =
+      (preds.q4 === '0–2 Cards' && totalCards <= 2) ||
+      (preds.q4 === '3–5 Cards' && totalCards >= 3 && totalCards <= 5) ||
+      (preds.q4 === '6+ Cards'  && totalCards >= 6);
+    if (correct) return 'win';
+  }
+
+  return 'loss';
 }
 
 /** Flip every pending bet on this match to win/loss based on the score + admin-entered Q2/Q4 answers. */

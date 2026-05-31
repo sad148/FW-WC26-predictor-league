@@ -27,7 +27,7 @@ export default function LeaderboardPage() {
     <section>
       <div className="sh">
         <div className="sh-title">LEADERBOARD</div>
-        <div className="sh-sub">Tiebreaker: total goals predicted correctly</div>
+        <div className="sh-sub">Ranked by Total Pts · Tiebreaker: most correct match results</div>
       </div>
       <div className="lb-wrap">
         <table className="lb-table">
@@ -37,12 +37,13 @@ export default function LeaderboardPage() {
               <th>Player</th>
               <th>W / L</th>
               <th>Wallet</th>
+              <th>Trivia</th>
               <th>Total Pts</th>
             </tr>
           </thead>
           <tbody>
             {rows.length === 0 ? (
-              <tr><td colSpan={5}>
+              <tr><td colSpan={6}>
                 <div className="empty-state">
                   <div className="ei">🏆</div>
                   <h3>No players yet</h3>
@@ -65,7 +66,8 @@ export default function LeaderboardPage() {
                   </td>
                   <td style={{ fontFamily: 'var(--font-cond)', fontSize: 13, color: 'var(--off)' }}>{p.wins}W {p.losses}L</td>
                   <td className="wallet-cell">{p.wallet} pts</td>
-                  <td className="pts-cell">{p.pts}</td>
+                  <td style={{ fontFamily: 'var(--font-cond)', fontSize: 13, color: 'var(--gold2)' }}>{p.triviaPts ?? 0}</td>
+                  <td className="pts-cell">{p.totalPts ?? p.wallet}</td>
                 </tr>
               );
             })}
