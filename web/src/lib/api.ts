@@ -70,13 +70,43 @@ export interface Bet {
 }
 
 export interface LeaderboardRow {
-  playerId: string;
-  name: string;
-  wins: number;
-  losses: number;
-  pending: number;
-  wallet: number;
-  pts: number;
+  playerId:  string;
+  name:      string;
+  wins:      number;
+  losses:    number;
+  pending:   number;
+  wallet:    number;
+  matchPts:  number;
+  triviaPts: number;
+  totalPts:  number;
+}
+
+export interface Question {
+  id:            number;
+  phase:         number;            // 1 or 2
+  text:          string;
+  options:       string[] | null;   // null = free-text answer
+  pointValue:    number;
+  winningAnswer: string | null;
+  status:        'open' | 'settled';   // open/close is controlled per-phase, not per-question
+  createdAt:     string;
+}
+
+// One answer window per trivia phase (1 = group, 2 = knockout). UTC ISO strings.
+export interface PhaseWindow {
+  phase:     number;
+  startTime: string | null;   // answers open at this moment
+  endTime:   string | null;   // answers close at this moment
+}
+
+export interface Answer {
+  id:            number;
+  userId:        number;
+  questionId:    number;
+  answer:        string;
+  outcome:       'pending' | 'win' | 'loss';
+  pointsAwarded: number;
+  createdAt:     string;
 }
 
 export interface League {
@@ -111,6 +141,19 @@ export const api = {
 
   // Leaderboard
   leaderboard: ()                               => request<{ leaderboard: LeaderboardRow[] }>('/api/leaderboard'),
+
+  // Trivia (Subsystem B)
+  questions:       ()                            => request<{ questions: Question[] }>('/api/questions'),
+  addQuestion:     (b: { text: string; phase: number; pointValue: number; options?: string[] | null }) =>
+                                                    request<{ question: Question }>('/api/questions', { method: 'POST', body: JSON.stringify(b) }),
+  updateQuestion:  (id: number, b: Partial<{ text: string; phase: number; pointValue: number; options: string[] | null; winningAnswer: string | null; status: 'open' | 'settled' }>) =>
+                                                    request<{ question: Question; settled: number }>(`/api/questions/${id}`, { method: 'PATCH', body: JSON.stringify(b) }),
+  questionPhases:  ()                            => request<{ phases: PhaseWindow[] }>('/api/question-phases'),
+  setQuestionPhase:(b: { phase: number; startTime: string | null; endTime: string | null }) =>
+                                                    request<{ phase: PhaseWindow }>('/api/question-phases', { method: 'PUT', body: JSON.stringify(b) }),
+  myAnswers:       ()                            => request<{ answers: Answer[] }>('/api/answers'),
+  saveAnswer:      (b: { questionId: number; answer: string }) =>
+                                                    request<{ answer: Answer }>('/api/answers', { method: 'POST', body: JSON.stringify(b) }),
 
   // League
   league:        ()                             => request<{ league: League | null }>('/api/league'),

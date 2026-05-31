@@ -37,12 +37,13 @@ export default function LeaderboardPage() {
               <th>Player</th>
               <th>W / L</th>
               <th>Wallet</th>
+              <th>Trivia</th>
               <th>Total Pts</th>
             </tr>
           </thead>
           <tbody>
             {rows.length === 0 ? (
-              <tr><td colSpan={5}>
+              <tr><td colSpan={6}>
                 <div className="empty-state">
                   <div className="ei">🏆</div>
                   <h3>No players yet</h3>
@@ -65,7 +66,8 @@ export default function LeaderboardPage() {
                   </td>
                   <td style={{ fontFamily: 'var(--font-cond)', fontSize: 13, color: 'var(--off)' }}>{p.wins}W {p.losses}L</td>
                   <td className="wallet-cell">{p.wallet} pts</td>
-                  <td className="pts-cell">{p.pts}</td>
+                  <td style={{ fontFamily: 'var(--font-cond)', fontSize: 13, color: 'var(--gold2)' }}>{p.triviaPts}</td>
+                  <td className="pts-cell">{p.totalPts}</td>
                 </tr>
               );
             })}

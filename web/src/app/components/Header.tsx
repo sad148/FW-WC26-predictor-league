@@ -8,6 +8,7 @@ import { useAuth, useToast } from '../providers';
 const NAV = [
   { href: '/',            label: 'Home' },
   { href: '/matches',     label: 'Matches' },
+  { href: '/trivia',      label: 'Trivia' },
   { href: '/leaderboard', label: 'Leaderboard' },
   { href: '/mybets',      label: 'My Bets' },
   { href: '/account',     label: 'Account' },

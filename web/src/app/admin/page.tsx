@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { api, type League, type Match } from '@/lib/api';
+import { api, type League, type Match, type PhaseWindow, type Question } from '@/lib/api';
 import { localInputToUtc, utcToLocalInput } from '@/lib/time';
 import { useAuth, useToast } from '../providers';
 
@@ -24,6 +24,20 @@ const EMPTY_FIXTURE: FixtureDraft = {
   startTime: '', endTime: '',
 };
 
+interface NewQuestionDraft {
+  text: string;
+  phase: 1 | 2;
+  pointValue: string;       // string for input field
+  optionsRaw: string;       // comma-separated; empty = free-text
+}
+
+const EMPTY_QUESTION: NewQuestionDraft = { text: '', phase: 1, pointValue: '5', optionsRaw: '' };
+
+interface QuestionDraft { winningAnswer: string; }
+interface PhaseWindowDraft { startTime: string; endTime: string; }   // local-tz datetime-local strings
+
+const PHASE_NAME: Record<number, string> = { 1: 'Phase 1 · Group Stage', 2: 'Phase 2 · Knockout' };
+
 export default function AdminPage() {
   const { isAdmin, isLoading, refresh } = useAuth();
   const { toast } = useToast();
@@ -37,6 +51,16 @@ export default function AdminPage() {
   const [adminPwd, setAdminPwd] = useState('');
   const [busy, setBusy] = useState(false);
 
+  // Trivia (Subsystem B) state
+  const [questions, setQuestions]     = useState<Question[]>([]);
+  const [newQ, setNewQ]               = useState<NewQuestionDraft>(EMPTY_QUESTION);
+  const [addingQ, setAddingQ]         = useState(false);
+  const [qDrafts, setQDrafts]         = useState<Record<number, QuestionDraft>>({});
+  const [savingQId, setSavingQId]     = useState<number | null>(null);
+  const [phaseWindows, setPhaseWindows] = useState<PhaseWindow[]>([]);
+  const [pwDrafts, setPwDrafts]         = useState<Record<number, PhaseWindowDraft>>({});
+  const [savingPhase, setSavingPhase]   = useState<number | null>(null);
+
   const loadFixtures = useCallback(async () => {
     try {
       const r = await api.fixtures();
@@ -44,11 +68,20 @@ export default function AdminPage() {
     } catch (e) { toast('Error', (e as Error).message); }
   }, [toast]);
 
+  const loadQuestions = useCallback(async () => {
+    try {
+      const [q, p] = await Promise.all([api.questions(), api.questionPhases()]);
+      setQuestions(q.questions);
+      setPhaseWindows(p.phases);
+    } catch (e) { toast('Error', (e as Error).message); }
+  }, [toast]);
+
   useEffect(() => {
     if (!isAdmin) return;
     api.league().then(r => setLeague(r.league)).catch(() => {});
     loadFixtures();
-  }, [isAdmin, loadFixtures]);
+    loadQuestions();
+  }, [isAdmin, loadFixtures, loadQuestions]);
 
   function draftFor(m: Match): ResultDraft {
     return drafts[m.id] ?? {
@@ -115,6 +148,83 @@ export default function AdminPage() {
       toast('Error', (e as Error).message);
     } finally {
       setAdding(false);
+    }
+  }
+
+  async function addQuestion() {
+    const text  = newQ.text.trim();
+    const opts  = newQ.optionsRaw.split(',').map(s => s.trim()).filter(Boolean);
+    const pts   = parseInt(newQ.pointValue, 10);
+    if (!text)                       return toast('Missing fields', 'Enter question text.');
+    if (!Number.isInteger(pts) || pts < 1) return toast('Invalid points', 'Point value must be a positive integer.');
+
+    setAddingQ(true);
+    try {
+      await api.addQuestion({ text, phase: newQ.phase, pointValue: pts, options: opts.length > 0 ? opts : null });
+      toast('✓ Question added', `Phase ${newQ.phase} · ${pts} pts`);
+      setNewQ(EMPTY_QUESTION);
+      await loadQuestions();
+    } catch (e) {
+      toast('Error', (e as Error).message);
+    } finally {
+      setAddingQ(false);
+    }
+  }
+
+  function qDraftFor(q: Question): QuestionDraft {
+    return qDrafts[q.id] ?? { winningAnswer: q.winningAnswer ?? '' };
+  }
+  function setQDraft(q: Question, patch: Partial<QuestionDraft>) {
+    const base = qDraftFor(q);
+    setQDrafts(d => ({ ...d, [q.id]: { ...base, ...patch } }));
+  }
+
+  // Settle a single question: record the winning answer and grade every answer to it.
+  async function settleQuestion(q: Question) {
+    const d = qDraftFor(q);
+    const winningAnswer = d.winningAnswer.trim();
+    if (!winningAnswer) return toast('Missing answer', 'Enter the winning answer before settling.');
+    setSavingQId(q.id);
+    try {
+      const res = await api.updateQuestion(q.id, { winningAnswer, status: 'settled' });
+      toast('✓ Settled', `${q.text.slice(0, 30)}${q.text.length > 30 ? '…' : ''}${res.settled ? ` · ${res.settled} answer(s) scored` : ''}`);
+      await loadQuestions();
+      setQDrafts(prev => { const c = { ...prev }; delete c[q.id]; return c; });
+    } catch (e) {
+      toast('Error', (e as Error).message);
+    } finally {
+      setSavingQId(null);
+    }
+  }
+
+  // Per-phase answer window — a single open/close window shared by every question in the phase.
+  function pwDraftFor(phase: number): PhaseWindowDraft {
+    const w = phaseWindows.find(p => p.phase === phase);
+    return pwDrafts[phase] ?? {
+      startTime: utcToLocalInput(w?.startTime),
+      endTime:   utcToLocalInput(w?.endTime),
+    };
+  }
+  function setPwDraft(phase: number, patch: Partial<PhaseWindowDraft>) {
+    const base = pwDraftFor(phase);
+    setPwDrafts(d => ({ ...d, [phase]: { ...base, ...patch } }));
+  }
+  async function savePhaseWindow(phase: number) {
+    const d = pwDraftFor(phase);
+    setSavingPhase(phase);
+    try {
+      await api.setQuestionPhase({
+        phase,
+        startTime: localInputToUtc(d.startTime),
+        endTime:   localInputToUtc(d.endTime),
+      });
+      toast('✓ Saved', `${PHASE_NAME[phase]} window updated.`);
+      await loadQuestions();
+      setPwDrafts(prev => { const c = { ...prev }; delete c[phase]; return c; });
+    } catch (e) {
+      toast('Error', (e as Error).message);
+    } finally {
+      setSavingPhase(null);
     }
   }
 
@@ -380,6 +490,166 @@ export default function AdminPage() {
         </div>
         <button className="btn-gold" style={{ width: '100%' }} disabled={addingFix} onClick={addFixture}>
           {addingFix ? 'Adding…' : 'Add Fixture'}
+        </button>
+      </div>
+
+      {/* ─── Trivia (Subsystem B): per-phase answer windows ─── */}
+      <div className="lform" style={{ marginBottom: '1.5rem', maxWidth: 'none' }}>
+        <div className="lform-title" style={{ color: 'var(--gold)' }}>TRIVIA — PHASE WINDOWS</div>
+        <p style={{ color: 'var(--off)', fontSize: 13, lineHeight: 1.6, marginBottom: '1rem' }}>
+          One open/close window per phase, shared by every question in it. Players can answer a phase's
+          questions only while now is inside its window. Enter times in your local timezone; stored as UTC.
+        </p>
+        <div style={{ display: 'grid', gap: 8 }}>
+          {[1, 2].map(phase => {
+            const d = pwDraftFor(phase);
+            const subLabel = { fontFamily: 'var(--font-cond)', fontSize: 11, color: 'var(--gold2)', letterSpacing: '.5px' };
+            const cellInput = {
+              background: 'rgba(255,255,255,.06)', border: '1px solid var(--border)',
+              color: 'var(--white)', fontFamily: 'var(--font-cond)', fontSize: 14,
+              padding: '4px 8px', borderRadius: 5,
+            };
+            return (
+              <div key={phase} style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 8, padding: '12px 14px' }}>
+                <div style={{ fontFamily: 'var(--font-cond)', fontSize: 14, fontWeight: 700, marginBottom: 10 }}>
+                  {PHASE_NAME[phase]}
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10, alignItems: 'end' }}>
+                  <div>
+                    <div style={subLabel}>OPENS (your local tz)</div>
+                    <input
+                      type="datetime-local"
+                      value={d.startTime}
+                      onChange={(e) => setPwDraft(phase, { startTime: e.target.value })}
+                      style={{ ...cellInput, width: '100%', marginTop: 3 }}
+                    />
+                  </div>
+                  <div>
+                    <div style={subLabel}>CLOSES (your local tz)</div>
+                    <input
+                      type="datetime-local"
+                      value={d.endTime}
+                      onChange={(e) => setPwDraft(phase, { endTime: e.target.value })}
+                      style={{ ...cellInput, width: '100%', marginTop: 3 }}
+                    />
+                  </div>
+                  <button
+                    className="wsubmit"
+                    style={{ marginLeft: 0 }}
+                    disabled={savingPhase === phase}
+                    onClick={() => savePhaseWindow(phase)}
+                  >{savingPhase === phase ? 'Saving…' : 'Save Window'}</button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* ─── Trivia (Subsystem B): per-question settling ─── */}
+      <div className="lform" style={{ marginBottom: '1.5rem', maxWidth: 'none' }}>
+        <div className="lform-title" style={{ color: 'var(--gold)' }}>TRIVIA — SETTLE</div>
+        {questions.length === 0 ? (
+          <p style={{ color: 'var(--off)', fontSize: 13 }}>No questions yet. Add one below.</p>
+        ) : (
+          <div style={{ display: 'grid', gap: 8 }}>
+            {questions.map(q => {
+              const d = qDraftFor(q);
+              return (
+                <div key={q.id} style={{
+                  background: 'var(--card)', border: '1px solid var(--border)',
+                  borderRadius: 8, padding: '12px 14px',
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 8 }}>
+                    <div>
+                      <div style={{ fontFamily: 'var(--font-cond)', fontSize: 14, fontWeight: 700 }}>
+                        {q.text}
+                      </div>
+                      <div style={{ fontFamily: 'var(--font-cond)', fontSize: 12, color: 'var(--off)', marginTop: 2 }}>
+                        Phase {q.phase} · {q.pointValue} pt{q.pointValue === 1 ? '' : 's'}
+                        {q.options ? ` · options: ${q.options.join(', ')}` : ' · free-text'}
+                      </div>
+                    </div>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 8, alignItems: 'end' }}>
+                    <div>
+                      <div style={{ fontFamily: 'var(--font-cond)', fontSize: 11, color: 'var(--gold2)', letterSpacing: '.5px', marginBottom: 3 }}>WINNING ANSWER</div>
+                      {q.options
+                        ? <select
+                            value={d.winningAnswer}
+                            onChange={(e) => setQDraft(q, { winningAnswer: e.target.value })}
+                            style={{
+                              background: 'rgba(255,255,255,.06)', border: '1px solid var(--border)',
+                              color: 'var(--white)', fontFamily: 'var(--font-cond)', fontSize: 13,
+                              padding: '5px 8px', borderRadius: 5, cursor: 'pointer', width: '100%',
+                            }}
+                          >
+                            <option value="">— not set —</option>
+                            {q.options.map(o => <option key={o} value={o}>{o}</option>)}
+                          </select>
+                        : <input
+                            type="text"
+                            placeholder="exact answer"
+                            value={d.winningAnswer}
+                            onChange={(e) => setQDraft(q, { winningAnswer: e.target.value })}
+                            style={{
+                              background: 'rgba(255,255,255,.06)', border: '1px solid var(--border)',
+                              color: 'var(--white)', fontFamily: 'var(--font-cond)', fontSize: 13,
+                              padding: '5px 8px', borderRadius: 5, width: '100%',
+                            }}
+                          />}
+                    </div>
+                    <div>
+                      <div style={{ fontFamily: 'var(--font-cond)', fontSize: 11, color: 'var(--gold2)', letterSpacing: '.5px', marginBottom: 3 }}>STATUS</div>
+                      <div style={{
+                        fontFamily: 'var(--font-cond)', fontSize: 13, fontWeight: 700, padding: '5px 0',
+                        color: q.status === 'settled' ? '#2ecc71' : 'var(--off)',
+                      }}>
+                        {q.status === 'settled' ? '✓ Settled' : 'Awaiting result'}
+                      </div>
+                    </div>
+                    <button
+                      className="wsubmit"
+                      style={{ marginLeft: 0, alignSelf: 'end' }}
+                      disabled={savingQId === q.id}
+                      onClick={() => settleQuestion(q)}
+                    >{savingQId === q.id ? 'Saving…' : q.status === 'settled' ? 'Re-score' : 'Settle & Score'}</button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      <div className="lform" style={{ marginBottom: '1.5rem' }}>
+        <div className="lform-title" style={{ color: 'var(--mex2)' }}>ADD TRIVIA QUESTION</div>
+        <div className="fg"><label className="flabel">Question Text</label>
+          <input className="finput" placeholder="e.g. Top scoring group-stage team?"
+                 value={newQ.text} onChange={(e) => setNewQ({ ...newQ, text: e.target.value })} />
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+          <div className="fg"><label className="flabel">Phase</label>
+            <select className="finput" style={{ cursor: 'pointer' }}
+                    value={newQ.phase}
+                    onChange={(e) => setNewQ({ ...newQ, phase: Number(e.target.value) as 1 | 2 })}>
+              <option value={1}>Phase 1 (Group Stage)</option>
+              <option value={2}>Phase 2 (Knockout)</option>
+            </select>
+          </div>
+          <div className="fg"><label className="flabel">Point Value</label>
+            <input className="finput" type="number" min={1}
+                   value={newQ.pointValue}
+                   onChange={(e) => setNewQ({ ...newQ, pointValue: e.target.value })} />
+          </div>
+        </div>
+        <div className="fg"><label className="flabel">Options (comma-separated, leave blank for free-text)</label>
+          <input className="finput" placeholder="e.g. Brazil, Argentina, France, Germany"
+                 value={newQ.optionsRaw}
+                 onChange={(e) => setNewQ({ ...newQ, optionsRaw: e.target.value })} />
+        </div>
+        <button className="btn-gold" style={{ width: '100%' }} disabled={addingQ} onClick={addQuestion}>
+          {addingQ ? 'Adding…' : 'Add Question'}
         </button>
       </div>
 

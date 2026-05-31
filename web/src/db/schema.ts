@@ -63,6 +63,42 @@ export const bets = pgTable('bets', {
   userMatchUnique: unique('bets_user_match_unique').on(t.userId, t.matchId),
 }));
 
+// questions — Subsystem B trivia/milestone questions.
+// Free for players to answer (no wallet cost). Points are dynamic per question.
+export const questions = pgTable('questions', {
+  id:            serial('id').primaryKey(),
+  phase:         integer('phase').notNull(),                            // 1 = group stage, 2 = knockout
+  text:          text('text').notNull(),
+  options:       jsonb('options').$type<string[] | null>(),             // null = free-text answer
+  pointValue:    integer('point_value').notNull(),                      // PRD: parsed per-question, e.g. 5 or 25
+  winningAnswer: text('winning_answer'),                                // null until admin settles
+  status:        text('status').notNull().default('open'),              // 'open' | 'settled' (open/close is now phase-level)
+  createdAt:     timestamp('created_at').defaultNow().notNull(),
+});
+
+// question_phases — the single answer window per phase (at most two rows: 1 = group, 2 = knockout).
+// Replaces per-question open/locked gating: answers to a phase's questions are accepted only
+// while now is within [startTime, endTime), exactly like a match's betting window. Stored in UTC.
+export const questionPhases = pgTable('question_phases', {
+  phase:     integer('phase').primaryKey(),                 // 1 = group stage, 2 = knockout
+  startTime: timestamp('start_time', { withTimezone: true }),
+  endTime:   timestamp('end_time',   { withTimezone: true }),
+});
+
+// question_answers — player submissions. One per (user, question).
+// outcome / pointsAwarded are filled when admin settles the question.
+export const questionAnswers = pgTable('question_answers', {
+  id:            serial('id').primaryKey(),
+  userId:        integer('user_id').notNull().references(() => users.id,     { onDelete: 'cascade' }),
+  questionId:    integer('question_id').notNull().references(() => questions.id, { onDelete: 'cascade' }),
+  answer:        text('answer').notNull(),
+  outcome:       text('outcome').notNull().default('pending'),          // 'pending' | 'win' | 'loss'
+  pointsAwarded: integer('points_awarded').notNull().default(0),
+  createdAt:     timestamp('created_at').defaultNow().notNull(),
+}, (t) => ({
+  userQuestionUnique: unique('answers_user_question_unique').on(t.userId, t.questionId),
+}));
+
 // audit — append-only log of state-changing actions.
 export const audit = pgTable('audit', {
   id:        serial('id').primaryKey(),

@@ -45,6 +45,29 @@ export function matchState(
   return 'closed';
 }
 
+/** Generic [start, end) window lifecycle — used by trivia phase windows. */
+export type WindowState = 'unset' | 'scheduled' | 'open' | 'closed';
+
+export function windowState(
+  startTime: string | null,
+  endTime: string | null,
+  now: number = Date.now(),
+): WindowState {
+  if (!startTime || !endTime) return 'unset';
+  const start = new Date(startTime).getTime();
+  const end   = new Date(endTime).getTime();
+  if (now < start) return 'scheduled';
+  if (now < end)   return 'open';
+  return 'closed';
+}
+
+export const WINDOW_STATE_LABEL: Record<WindowState, string> = {
+  unset:     'WINDOW NOT SET',
+  scheduled: 'OPENS SOON',
+  open:      '● OPEN',
+  closed:    'CLOSED',
+};
+
 export const MATCH_STATE_LABEL: Record<MatchState, string> = {
   unscheduled: 'TIMES NOT SET',
   scheduled:   'OPENS SOON',
