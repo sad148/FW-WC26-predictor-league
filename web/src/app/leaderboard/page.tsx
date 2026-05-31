@@ -27,7 +27,7 @@ export default function LeaderboardPage() {
     <section>
       <div className="sh">
         <div className="sh-title">LEADERBOARD</div>
-        <div className="sh-sub">Tiebreaker: total goals predicted correctly</div>
+        <div className="sh-sub">Ranked by Total Pts · Tiebreaker: most correct match results</div>
       </div>
       <div className="lb-wrap">
         <table className="lb-table">
