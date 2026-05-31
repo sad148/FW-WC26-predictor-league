@@ -19,7 +19,6 @@ const PLAYER_NAV = [
 // Nav shown to admins — no My Bets / Account (irrelevant for admin sessions)
 const ADMIN_NAV = [
   { href: "/leaderboard", label: "Leaderboard" },
-  { href: "/brackets", label: "Bracket" },
   { href: "/admin", label: "Admin" },
 ];
 
