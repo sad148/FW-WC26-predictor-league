@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { eq } from 'drizzle-orm';
 import { db } from '@/db/client';
-import { questions, questionAnswers, audit } from '@/db/schema';
+import { questions, questionAnswers } from '@/db/schema';
 import { requireAdmin } from '@/lib/session';
 import { ok, fail, handleError } from '@/lib/responses';
 
@@ -52,10 +52,6 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
       }
     }
 
-    await db.insert(audit).values({
-      action: 'updateQuestion',
-      detail: { id: qid, status: row.status, winningAnswer: row.winningAnswer, settled },
-    });
     return ok({ question: row, settled });
   } catch (err) {
     return handleError(err);

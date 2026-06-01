@@ -3,7 +3,7 @@ import { db } from '@/db/client';
 import { requireAdmin } from '@/lib/session';
 import { ok, handleError } from '@/lib/responses';
 
-/** POST /api/admin/reset — clears round-specific data only. Preserves users, leagues, fixtures, and audit. */
+/** POST /api/admin/reset — clears round-specific data only. Preserves users, leagues, and fixtures. */
 export async function POST() {
   try {
     await requireAdmin();

@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { asc } from 'drizzle-orm';
 import { db } from '@/db/client';
-import { questions, audit } from '@/db/schema';
+import { questions } from '@/db/schema';
 import { requireAdmin } from '@/lib/session';
 import { ok, fail, handleError } from '@/lib/responses';
 
@@ -34,7 +34,6 @@ export async function POST(req: NextRequest) {
     const [row] = await db.insert(questions).values({
       text, phase, options: opts, pointValue: points,
     }).returning();
-    await db.insert(audit).values({ action: 'addQuestion', detail: { id: row.id, phase, points } });
     return ok({ question: row }, 201);
   } catch (err) {
     return handleError(err);

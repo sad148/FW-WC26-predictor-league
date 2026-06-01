@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { desc, sql } from 'drizzle-orm';
 import { db } from '@/db/client';
-import { users, leagues, audit } from '@/db/schema';
+import { users, leagues } from '@/db/schema';
 import { hashPassword, playerIdFromName } from '@/lib/auth';
 import { getSession } from '@/lib/session';
 import { ok, fail, handleError } from '@/lib/responses';
@@ -35,8 +35,6 @@ export async function POST(req: NextRequest) {
       .insert(users)
       .values({ playerId, name, passwordHash })
       .returning();
-
-    await db.insert(audit).values({ action: 'registerPlayer', detail: { name, playerId } });
 
     const session = await getSession();
     session.userId   = user.id;

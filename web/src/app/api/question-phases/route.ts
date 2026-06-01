@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { asc } from 'drizzle-orm';
 import { db } from '@/db/client';
-import { questionPhases, audit } from '@/db/schema';
+import { questionPhases } from '@/db/schema';
 import { requireAdmin } from '@/lib/session';
 import { ok, fail, handleError } from '@/lib/responses';
 
@@ -52,10 +52,6 @@ export async function PUT(req: NextRequest) {
       .onConflictDoUpdate({ target: questionPhases.phase, set: { startTime, endTime } })
       .returning();
 
-    await db.insert(audit).values({
-      action: 'setQuestionPhase',
-      detail: { phase, startTime: row.startTime, endTime: row.endTime },
-    });
     return ok({ phase: row });
   } catch (err) {
     return handleError(err);

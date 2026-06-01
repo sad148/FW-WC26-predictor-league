@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { and, asc, eq } from 'drizzle-orm';
 import { db } from '@/db/client';
-import { bets, fixtures, audit } from '@/db/schema';
+import { bets, fixtures } from '@/db/schema';
 import { requireUser } from '@/lib/session';
 import { HttpError } from '@/lib/errors';
 import { ok, fail, handleError } from '@/lib/responses';
@@ -70,10 +70,6 @@ export async function POST(req: NextRequest) {
       })
       .returning();
 
-    await db.insert(audit).values({
-      action: 'saveBet',
-      detail: { matchId, wager, userId: session.userId },
-    });
     return ok({ bet: row }, 201);
   } catch (err) {
     return handleError(err);

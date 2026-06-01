@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { sql } from 'drizzle-orm';
 import { db } from '@/db/client';
-import { users, audit } from '@/db/schema';
+import { users } from '@/db/schema';
 import { verifyPassword } from '@/lib/auth';
 import { getSession } from '@/lib/session';
 import { ok, fail, handleError } from '@/lib/responses';
@@ -21,8 +21,6 @@ export async function POST(req: NextRequest) {
 
     const matches = await verifyPassword(password, user.passwordHash);
     if (!matches) return fail('Wrong password.', 401);
-
-    await db.insert(audit).values({ action: 'loginPlayer', detail: { name: user.name, playerId: user.playerId } });
 
     const session = await getSession();
     session.userId   = user.id;

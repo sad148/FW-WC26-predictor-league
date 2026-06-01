@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { asc } from 'drizzle-orm';
 import { db } from '@/db/client';
-import { bracketEntries, audit } from '@/db/schema';
+import { bracketEntries } from '@/db/schema';
 import { requireAdmin } from '@/lib/session';
 import { ok, fail, handleError } from '@/lib/responses';
 
@@ -35,7 +35,6 @@ export async function POST(req: NextRequest) {
     const [row] = await db.insert(bracketEntries).values({
       label, phase, teams, sortOrder,
     }).returning();
-    await db.insert(audit).values({ action: 'addBracketEntry', detail: { id: row.id, phase, label } });
     return ok({ entry: row }, 201);
   } catch (err) {
     return handleError(err);

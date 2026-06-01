@@ -1,5 +1,5 @@
 import { db } from '@/db/client';
-import { fixtures, audit } from '@/db/schema';
+import { fixtures } from '@/db/schema';
 import { requireAdmin } from '@/lib/session';
 import { ok, fail, handleError } from '@/lib/responses';
 
@@ -28,7 +28,6 @@ export async function POST() {
     if (existing.length > 0) return fail('Fixtures table already has data. Reset first.', 409);
 
     const rows = await db.insert(fixtures).values(SAMPLE).returning();
-    await db.insert(audit).values({ action: 'seedFixtures', detail: { count: rows.length } });
     return ok({ message: `Seeded ${rows.length} fixtures.`, count: rows.length }, 201);
   } catch (err) {
     return handleError(err);

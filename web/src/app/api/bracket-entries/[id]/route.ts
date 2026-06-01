@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { eq } from 'drizzle-orm';
 import { db } from '@/db/client';
-import { bracketEntries, bracketPicks, audit } from '@/db/schema';
+import { bracketEntries, bracketPicks } from '@/db/schema';
 import { requireAdmin } from '@/lib/session';
 import { ok, fail, handleError } from '@/lib/responses';
 
@@ -52,10 +52,6 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
       }
     }
 
-    await db.insert(audit).values({
-      action: 'updateBracketEntry',
-      detail: { id: eid, status: row.status, correctPick: row.correctPick, settled },
-    });
     return ok({ entry: row, settled });
   } catch (err) {
     return handleError(err);

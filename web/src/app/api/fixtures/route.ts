@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { asc } from 'drizzle-orm';
 import { db } from '@/db/client';
-import { fixtures, audit } from '@/db/schema';
+import { fixtures } from '@/db/schema';
 import { requireAdmin } from '@/lib/session';
 import { ok, fail, handleError } from '@/lib/responses';
 
@@ -42,7 +42,6 @@ export async function POST(req: NextRequest) {
       })
       .returning();
 
-    await db.insert(audit).values({ action: 'addFixture', detail: { id: row.id, teamA, teamB } });
     return ok({ match: row }, 201);
   } catch (err) {
     return handleError(err);

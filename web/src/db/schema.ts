@@ -132,11 +132,3 @@ export const bracketPicks = pgTable('bracket_picks', {
 }, (t) => ({
   userEntryUnique: unique('bracket_picks_user_entry_unique').on(t.userId, t.entryId),
 }));
-
-// audit — append-only log of state-changing actions.
-export const audit = pgTable('audit', {
-  id:        serial('id').primaryKey(),
-  action:    text('action').notNull(),
-  detail:    jsonb('detail'),
-  createdAt: timestamp('created_at').defaultNow().notNull(),
-});

@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { asc, eq } from 'drizzle-orm';
 import { db } from '@/db/client';
-import { questionAnswers, questions, questionPhases, audit } from '@/db/schema';
+import { questionAnswers, questions, questionPhases } from '@/db/schema';
 import { requireUser } from '@/lib/session';
 import { HttpError } from '@/lib/errors';
 import { ok, fail, handleError } from '@/lib/responses';
@@ -64,10 +64,6 @@ export async function POST(req: NextRequest) {
       set:    { answer, outcome: 'pending', pointsAwarded: 0 },
     }).returning();
 
-    await db.insert(audit).values({
-      action: 'saveAnswer',
-      detail: { userId: session.userId, questionId: qid, answer },
-    });
     return ok({ answer: row }, 201);
   } catch (err) {
     return handleError(err);

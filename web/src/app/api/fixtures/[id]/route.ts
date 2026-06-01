@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { eq } from 'drizzle-orm';
 import { db } from '@/db/client';
-import { fixtures, audit } from '@/db/schema';
+import { fixtures } from '@/db/schema';
 import { requireAdmin } from '@/lib/session';
 import { settlePendingBets } from '@/lib/settle';
 import { ok, fail, handleError } from '@/lib/responses';
@@ -52,10 +52,6 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
       settled = await settlePendingBets(matchId, row.scoreA, row.scoreB);
     }
 
-    await db.insert(audit).values({
-      action: 'saveResult',
-      detail: { matchId, scoreA: row.scoreA, scoreB: row.scoreB, firstScorer: row.firstScorer, totalCards: row.totalCards, startTime: row.startTime, endTime: row.endTime, settled },
-    });
     return ok({ match: row, settled });
   } catch (err) {
     return handleError(err);
