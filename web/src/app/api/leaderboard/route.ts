@@ -29,7 +29,7 @@ export async function GET() {
       totalPts:   number;
     }>(sql`
       SELECT
-        u.player_id     AS "playerId",
+        u.id::text      AS "playerId",
         u.name          AS "name",
         m.wins          AS "wins",
         m.losses        AS "losses",

@@ -5,6 +5,10 @@ import { questions, questionAnswers } from '@/db/schema';
 import { requireAdmin } from '@/lib/session';
 import { ok, fail, handleError } from '@/lib/responses';
 
+const parseOpts  = (raw: string | null) => raw ? raw.split('|') : null;
+const serializeOpts = (v: unknown) =>
+  Array.isArray(v) && v.length > 0 ? v.map(String).filter(Boolean).join('|') : null;
+
 /**
  * PATCH /api/questions/[id] — admin updates a question.
  * If status flips to 'settled' AND winningAnswer is set, all pending answers
@@ -24,23 +28,18 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     if (has('text'))          updates.text          = String(body.text);
     if (has('phase'))         updates.phase         = Number(body.phase);
     if (has('pointValue'))    updates.pointValue    = Number(body.pointValue);
-    if (has('options'))       updates.options       = Array.isArray(body.options) && body.options.length > 0
-                                                       ? body.options.map((o: unknown) => String(o)).filter(Boolean)
-                                                       : null;
+    if (has('options'))       updates.options       = serializeOpts(body.options);
     if (has('winningAnswer')) updates.winningAnswer = body.winningAnswer == null || body.winningAnswer === ''
-                                                       ? null
-                                                       : String(body.winningAnswer);
+                                                       ? null : String(body.winningAnswer);
     if (has('status'))        updates.status        = String(body.status);
 
     const [row] = await db.update(questions).set(updates).where(eq(questions.id, qid)).returning();
     if (!row) return fail('Question not found.', 404);
 
-    // Settle when status='settled' and winningAnswer is non-null.
     let settled = 0;
     if (row.status === 'settled' && row.winningAnswer) {
       const expected = row.winningAnswer.trim().toLowerCase();
-      const pending  = await db.select().from(questionAnswers)
-        .where(eq(questionAnswers.questionId, qid));
+      const pending  = await db.select().from(questionAnswers).where(eq(questionAnswers.questionId, qid));
       for (const a of pending) {
         if (a.outcome !== 'pending') continue;
         const correct = a.answer.trim().toLowerCase() === expected;
@@ -52,7 +51,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
       }
     }
 
-    return ok({ question: row, settled });
+    return ok({ question: { ...row, options: parseOpts(row.options) }, settled });
   } catch (err) {
     return handleError(err);
   }

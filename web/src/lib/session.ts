@@ -4,7 +4,6 @@ import { HttpError } from "./errors";
 
 export interface SessionData {
   userId?: number;
-  playerId?: string;
   name?: string;
   isAdmin?: boolean;
 }

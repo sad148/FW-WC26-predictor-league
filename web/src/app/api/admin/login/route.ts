@@ -14,9 +14,8 @@ export async function POST(req: NextRequest) {
     // Admin and player sessions are mutually exclusive: clear any player fields
     // when promoting to admin so /api/bets can't be hit from the same session.
     const session = await getSession();
-    session.userId   = undefined;
-    session.playerId = undefined;
-    session.name     = undefined;
+    session.userId  = undefined;
+    session.name    = undefined;
     session.isAdmin  = true;
     await session.save();
     return ok();

@@ -10,14 +10,14 @@ const OPEN_AT   = new Date(NOW + 60 * 60 * 1000);
 const CLOSE_AT  = new Date(NOW + 25 * 60 * 60 * 1000);
 
 const SAMPLE: (typeof fixtures.$inferInsert)[] = [
-  { date: 'Jun 11', phase: 'group',    groupName: 'A',   teamA: 'Mexico',      teamB: 'USA',      startTime: OPEN_AT, endTime: CLOSE_AT },
-  { date: 'Jun 12', phase: 'group',    groupName: 'A',   teamA: 'Canada',      teamB: 'Brazil',   startTime: OPEN_AT, endTime: CLOSE_AT },
-  { date: 'Jun 13', phase: 'group',    groupName: 'B',   teamA: 'England',     teamB: 'France',   startTime: OPEN_AT, endTime: CLOSE_AT },
-  { date: 'Jun 13', phase: 'group',    groupName: 'B',   teamA: 'Germany',     teamB: 'Japan',    startTime: OPEN_AT, endTime: CLOSE_AT },
-  { date: 'Jun 14', phase: 'group',    groupName: 'C',   teamA: 'Argentina',   teamB: 'Chile',    startTime: OPEN_AT, endTime: CLOSE_AT },
-  { date: 'Jun 14', phase: 'group',    groupName: 'C',   teamA: 'Spain',       teamB: 'Portugal', startTime: OPEN_AT, endTime: CLOSE_AT },
-  { date: 'Jun 28', phase: 'knockout', groupName: 'R16', teamA: 'Netherlands', teamB: 'Senegal',  startTime: OPEN_AT, endTime: CLOSE_AT },
-  { date: 'Jun 29', phase: 'knockout', groupName: 'R16', teamA: 'Italy',       teamB: 'Uruguay',  startTime: OPEN_AT, endTime: CLOSE_AT },
+  { phase: 'group',    groupName: 'A',   teamA: 'Mexico',      teamB: 'USA',      startTime: OPEN_AT, endTime: CLOSE_AT },
+  { phase: 'group',    groupName: 'A',   teamA: 'Canada',      teamB: 'Brazil',   startTime: OPEN_AT, endTime: CLOSE_AT },
+  { phase: 'group',    groupName: 'B',   teamA: 'England',     teamB: 'France',   startTime: OPEN_AT, endTime: CLOSE_AT },
+  { phase: 'group',    groupName: 'B',   teamA: 'Germany',     teamB: 'Japan',    startTime: OPEN_AT, endTime: CLOSE_AT },
+  { phase: 'group',    groupName: 'C',   teamA: 'Argentina',   teamB: 'Chile',    startTime: OPEN_AT, endTime: CLOSE_AT },
+  { phase: 'group',    groupName: 'C',   teamA: 'Spain',       teamB: 'Portugal', startTime: OPEN_AT, endTime: CLOSE_AT },
+  { phase: 'knockout', groupName: 'R16', teamA: 'Netherlands', teamB: 'Senegal',  startTime: OPEN_AT, endTime: CLOSE_AT },
+  { phase: 'knockout', groupName: 'R16', teamA: 'Italy',       teamB: 'Uruguay',  startTime: OPEN_AT, endTime: CLOSE_AT },
 ];
 
 /** POST /api/admin/seed-fixtures — bulk-insert 8 sample WC2026 fixtures. Fails if fixtures table already has rows. */

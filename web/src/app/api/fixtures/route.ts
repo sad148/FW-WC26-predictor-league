@@ -30,7 +30,6 @@ export async function POST(req: NextRequest) {
     const [row] = await db
       .insert(fixtures)
       .values({
-        date:      String(body.date || 'TBD'),
         phase:     String(body.phase || 'group'),
         groupName: body.group ? String(body.group) : null,
         teamA,

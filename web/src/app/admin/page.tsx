@@ -25,7 +25,6 @@ interface ResultDraft {
 interface FixtureDraft {
   nameA: string;
   nameB: string;
-  date: string;
   phase: "group" | "knockout";
   group: string;
   startTime: string;
@@ -35,7 +34,6 @@ interface FixtureDraft {
 const EMPTY_FIXTURE: FixtureDraft = {
   nameA: "",
   nameB: "",
-  date: "",
   phase: "group",
   group: "",
   startTime: "",
@@ -255,7 +253,6 @@ export default function AdminPage() {
       await api.addFixture({
         nameA: newFix.nameA.trim(),
         nameB: newFix.nameB.trim(),
-        date: newFix.date.trim() || undefined,
         phase: newFix.phase,
         groupName: newFix.group.trim() || null,
         startTime: localInputToUtc(newFix.startTime),
@@ -782,7 +779,7 @@ export default function AdminPage() {
                         marginTop: 2,
                       }}
                     >
-                      {m.date}
+                      {m.groupName ? `Group ${m.groupName}` : m.phase}
                     </div>
                   </div>
 
@@ -952,15 +949,6 @@ export default function AdminPage() {
         <div
           style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}
         >
-          <div className="fg">
-            <label className="flabel">Date</label>
-            <input
-              className="finput"
-              placeholder="Jun 15"
-              value={newFix.date}
-              onChange={(e) => setNewFix({ ...newFix, date: e.target.value })}
-            />
-          </div>
           <div className="fg">
             <label className="flabel">Phase</label>
             <select

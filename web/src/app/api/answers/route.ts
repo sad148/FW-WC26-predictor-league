@@ -50,7 +50,8 @@ export async function POST(req: NextRequest) {
     if (now >= window.endTime)  return fail('This phase is closed for answers.', 409);
 
     // If options are defined, the answer must be one of them.
-    if (q.options && !q.options.includes(answer)) {
+    const optsList = q.options ? q.options.split('|') : null;
+    if (optsList && !optsList.includes(answer)) {
       return fail('Answer must be one of the provided options.');
     }
 

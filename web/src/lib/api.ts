@@ -49,7 +49,6 @@ export interface MeResponse {
 
 export interface Match {
   id: number;
-  date: string;
   phase: string;
   groupName: string | null;
   teamA: string;
@@ -122,7 +121,6 @@ export interface GroupEntry {
   teams: string;           // pipe-separated
   correctRanking: string | null;
   status: "open" | "settled";
-  createdAt: string;
 }
 
 export interface GroupPick {
@@ -131,7 +129,6 @@ export interface GroupPick {
   groupId: number;
   ranking: string;         // pipe-separated 1st→4th
   pointsAwarded: number;
-  createdAt: string;
 }
 
 export interface BracketEntry {
@@ -141,7 +138,6 @@ export interface BracketEntry {
   correctPick: string | null;
   status: "open" | "settled";
   sortOrder: number;
-  createdAt: string;
 }
 
 export interface BracketPhase {

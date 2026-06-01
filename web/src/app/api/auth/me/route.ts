@@ -6,7 +6,7 @@ export async function GET() {
     const session = await getSession();
     if (!session.userId) return ok({ user: null, isAdmin: !!session.isAdmin });
     return ok({
-      user:    { userId: session.userId, playerId: session.playerId, name: session.name },
+      user:    { userId: session.userId, playerId: String(session.userId), name: session.name },
       isAdmin: !!session.isAdmin,
     });
   } catch (err) {

@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server';
 import { desc, sql } from 'drizzle-orm';
 import { db } from '@/db/client';
 import { users, leagues } from '@/db/schema';
-import { hashPassword, playerIdFromName } from '@/lib/auth';
+import { hashPassword } from '@/lib/auth';
 import { getSession } from '@/lib/session';
 import { ok, fail, handleError } from '@/lib/responses';
 
@@ -17,33 +17,29 @@ export async function POST(req: NextRequest) {
     if (password.length < 4)  return fail('Password must be at least 4 characters.');
     if (!code)                return fail('League code is required.');
 
-    // Validate against the most recently created league.
     const [league] = await db.select().from(leagues).orderBy(desc(leagues.createdAt)).limit(1);
-    if (!league)                              return fail('No league exists yet. Ask the admin to create one.');
-    if (league.code.toUpperCase() !== code)   return fail('Invalid league code.');
+    if (!league)                            return fail('No league exists yet. Ask the admin to create one.');
+    if (league.code.toUpperCase() !== code) return fail('Invalid league code.');
 
-    // Case-insensitive uniqueness check.
     const existing = await db
       .select()
       .from(users)
       .where(sql`lower(${users.name}) = ${name.toLowerCase()}`);
     if (existing.length > 0) return fail('Name already taken. Log in instead.', 409);
 
-    const playerId = playerIdFromName(name);
     const passwordHash = await hashPassword(password);
     const [user] = await db
       .insert(users)
-      .values({ playerId, name, passwordHash })
+      .values({ name, passwordHash })
       .returning();
 
     const session = await getSession();
-    session.userId   = user.id;
-    session.playerId = user.playerId;
-    session.name     = user.name;
-    session.isAdmin  = false;   // player and admin sessions are mutually exclusive
+    session.userId  = user.id;
+    session.name    = user.name;
+    session.isAdmin = false;
     await session.save();
 
-    return ok({ playerId: user.playerId, name: user.name }, 201);
+    return ok({ playerId: String(user.id), name: user.name }, 201);
   } catch (err) {
     return handleError(err);
   }

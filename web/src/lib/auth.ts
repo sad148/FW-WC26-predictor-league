@@ -10,8 +10,3 @@ export async function verifyPassword(
 ): Promise<boolean> {
   return bcrypt.compare(plain, hash);
 }
-
-/** Legacy-compatible player_id slug — mirrors the Apps Script convention. */
-export function playerIdFromName(name: string): string {
-  return "player_" + name.trim().toLowerCase().replace(/\s+/g, "_");
-}

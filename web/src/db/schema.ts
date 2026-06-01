@@ -3,9 +3,8 @@ import { pgTable, serial, text, integer, timestamp, jsonb, unique } from 'drizzl
 // users — replaces the Apps Script Players tab.
 export const users = pgTable('users', {
   id:           serial('id').primaryKey(),
-  playerId:     text('player_id').notNull().unique(),       // 'player_<name_slug>' for legacy client compat
   name:         text('name').notNull().unique(),
-  passwordHash: text('password_hash').notNull(),            // bcrypt
+  passwordHash: text('password_hash').notNull(),
   createdAt:    timestamp('created_at').defaultNow().notNull(),
 });
 
@@ -21,7 +20,6 @@ export const leagues = pgTable('leagues', {
 // fixtures — replaces the Fixtures tab.
 export const fixtures = pgTable('fixtures', {
   id:        serial('id').primaryKey(),
-  date:      text('date').notNull(),                        // free-form for now, e.g. 'Jun 11'
   phase:     text('phase').notNull().default('group'),      // 'group' | 'knockout'
   groupName: text('group_name'),                            // 'A', 'R16', etc.
   teamA:     text('team_a').notNull(),
@@ -64,7 +62,7 @@ export const questions = pgTable('questions', {
   id:            serial('id').primaryKey(),
   phase:         integer('phase').notNull(),                            // 1 = group stage, 2 = knockout
   text:          text('text').notNull(),
-  options:       jsonb('options').$type<string[] | null>(),             // null = free-text answer
+  options:       text('options'),                                       // pipe-separated: "Opt1|Opt2|Opt3"; null = free-text
   pointValue:    integer('point_value').notNull(),                      // PRD: parsed per-question, e.g. 5 or 25
   winningAnswer: text('winning_answer'),                                // null until admin settles
   status:        text('status').notNull().default('open'),              // 'open' | 'settled' (open/close is now phase-level)
@@ -102,7 +100,6 @@ export const groupEntries = pgTable('group_entries', {
   teams:          text('teams').notNull(),                  // pipe-separated: "Brazil|Argentina|Mexico|Serbia"
   correctRanking: text('correct_ranking'),                  // pipe-separated 1st→4th; null until admin settles
   status:         text('status').notNull().default('open'), // 'open' | 'settled'
-  createdAt:      timestamp('created_at').defaultNow().notNull(),
 });
 
 // group_picks — one per (user, group): full 1st-to-4th ranking prediction.
@@ -113,7 +110,6 @@ export const groupPicks = pgTable('group_picks', {
   groupId:       integer('group_id').notNull().references(() => groupEntries.id, { onDelete: 'cascade' }),
   ranking:       text('ranking').notNull(),                 // pipe-separated 1st→4th: "Brazil|Mexico|Serbia|Argentina"
   pointsAwarded: integer('points_awarded').notNull().default(0),
-  createdAt:     timestamp('created_at').defaultNow().notNull(),
 }, (t) => ({
   userGroupUnique: unique('group_picks_user_group_unique').on(t.userId, t.groupId),
 }));
@@ -127,7 +123,6 @@ export const bracketEntries = pgTable('bracket_entries', {
   correctPick: text('correct_pick'),                                 // null until admin settles
   status:      text('status').notNull().default('open'),             // 'open' | 'settled'
   sortOrder:   integer('sort_order').notNull().default(0),
-  createdAt:   timestamp('created_at').defaultNow().notNull(),
 });
 
 // bracket_phases — single submission window per phase (1 = group, 2 = knockout). UTC.

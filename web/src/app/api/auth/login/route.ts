@@ -23,13 +23,12 @@ export async function POST(req: NextRequest) {
     if (!matches) return fail('Wrong password.', 401);
 
     const session = await getSession();
-    session.userId   = user.id;
-    session.playerId = user.playerId;
-    session.name     = user.name;
-    session.isAdmin  = false;   // player and admin sessions are mutually exclusive
+    session.userId  = user.id;
+    session.name    = user.name;
+    session.isAdmin = false;
     await session.save();
 
-    return ok({ playerId: user.playerId, name: user.name });
+    return ok({ playerId: String(user.id), name: user.name });
   } catch (err) {
     return handleError(err);
   }
