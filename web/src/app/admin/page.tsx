@@ -877,6 +877,23 @@ export default function AdminPage() {
           <code style={{ color: 'var(--gold2)', fontSize: 12 }}>A,Brazil|Argentina|Mexico|Serbia</code>
         </p>
         <div className="fg">
+          <label className="flabel">Upload file</label>
+          <input
+            type="file" accept=".csv,text/csv"
+            style={{ color: 'var(--off)', fontSize: 13, marginBottom: 8 }}
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (!file) return;
+              const reader = new FileReader();
+              reader.onload = (ev) => {
+                const text = ev.target?.result as string;
+                setCsvText(text);
+                parseCsv(text);
+              };
+              reader.readAsText(file);
+            }}
+          />
+          <label className="flabel" style={{ marginTop: 4 }}>Or paste CSV</label>
           <textarea className="finput" rows={6}
             placeholder={'group,teams\nA,Brazil|Argentina|Mexico|Serbia\nB,England|USA|Iran|Wales'}
             value={csvText}
