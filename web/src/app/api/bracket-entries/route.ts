@@ -9,7 +9,7 @@ import { ok, fail, handleError } from '@/lib/responses';
 export async function GET() {
   try {
     const rows = await db.select().from(bracketEntries)
-      .orderBy(asc(bracketEntries.phase), asc(bracketEntries.sortOrder), asc(bracketEntries.id));
+      .orderBy(asc(bracketEntries.sortOrder), asc(bracketEntries.id));
     return ok({ entries: rows });
   } catch (err) {
     return handleError(err);
