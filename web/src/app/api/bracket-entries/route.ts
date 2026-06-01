@@ -22,18 +22,16 @@ export async function POST(req: NextRequest) {
     await requireAdmin();
     const body  = await req.json();
     const label = String(body.label || '').trim();
-    const phase = Number(body.phase);
     const teams = Array.isArray(body.teams)
       ? body.teams.map((t: unknown) => String(t).trim()).filter(Boolean)
       : [];
     const sortOrder = Number.isInteger(Number(body.sortOrder)) ? Number(body.sortOrder) : 0;
 
-    if (!label)                            return fail('Label is required.');
-    if (phase !== 1 && phase !== 2)        return fail('Phase must be 1 (group) or 2 (knockout).');
-    if (teams.length < 2)                  return fail('At least 2 teams are required.');
+    if (!label)             return fail('Label is required.');
+    if (teams.length < 2)   return fail('At least 2 teams are required.');
 
     const [row] = await db.insert(bracketEntries).values({
-      label, phase, teams, sortOrder,
+      label, teams, sortOrder,
     }).returning();
     return ok({ entry: row }, 201);
   } catch (err) {

@@ -100,12 +100,34 @@ export const questionAnswers = pgTable('question_answers', {
   userQuestionUnique: unique('answers_user_question_unique').on(t.userId, t.questionId),
 }));
 
-// bracket_entries — Subsystem C: one predictable slot in the bracket.
-// Phase 1 = group standing slots (e.g. "Group A – 1st Place").
-// Phase 2 = knockout match slots (e.g. "R16 Match 1 Winner").
+// group_entries — Phase 1 bracket: one row per tournament group (12 for WC2026).
+// teams and correctRanking stored as pipe-separated text (not jsonb) to minimise Neon storage.
+export const groupEntries = pgTable('group_entries', {
+  id:             serial('id').primaryKey(),
+  groupName:      text('group_name').notNull().unique(),   // 'A'–'L'
+  teams:          text('teams').notNull(),                  // pipe-separated: "Brazil|Argentina|Mexico|Serbia"
+  correctRanking: text('correct_ranking'),                  // pipe-separated 1st→4th; null until admin settles
+  status:         text('status').notNull().default('open'), // 'open' | 'settled'
+  createdAt:      timestamp('created_at').defaultNow().notNull(),
+});
+
+// group_picks — one per (user, group): full 1st-to-4th ranking prediction.
+// ranking stored as pipe-separated text (4× fewer rows than old per-slot model).
+export const groupPicks = pgTable('group_picks', {
+  id:            serial('id').primaryKey(),
+  userId:        integer('user_id').notNull().references(() => users.id,         { onDelete: 'cascade' }),
+  groupId:       integer('group_id').notNull().references(() => groupEntries.id, { onDelete: 'cascade' }),
+  ranking:       text('ranking').notNull(),                 // pipe-separated 1st→4th: "Brazil|Mexico|Serbia|Argentina"
+  pointsAwarded: integer('points_awarded').notNull().default(0),
+  createdAt:     timestamp('created_at').defaultNow().notNull(),
+}, (t) => ({
+  userGroupUnique: unique('group_picks_user_group_unique').on(t.userId, t.groupId),
+}));
+
+// bracket_entries — Phase 2 knockout slots only (e.g. "R16 Match 1 Winner").
+// Phase 1 group standings are handled by group_entries / group_picks above.
 export const bracketEntries = pgTable('bracket_entries', {
   id:          serial('id').primaryKey(),
-  phase:       integer('phase').notNull(),                           // 1 = group, 2 = knockout
   label:       text('label').notNull(),                              // display name
   teams:       jsonb('teams').$type<string[]>().notNull(),           // selectable options
   correctPick: text('correct_pick'),                                 // null until admin settles

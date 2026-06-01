@@ -7,7 +7,7 @@ import { ok, handleError } from '@/lib/responses';
 export async function POST() {
   try {
     await requireAdmin();
-    await db.execute(sql`TRUNCATE TABLE bracket_picks, bracket_phases, bracket_entries, question_answers, question_phases, questions, bets RESTART IDENTITY CASCADE`);
+    await db.execute(sql`TRUNCATE TABLE bracket_picks, bracket_phases, bracket_entries, group_picks, question_answers, question_phases, questions, bets RESTART IDENTITY CASCADE`);
     return ok({ message: 'Bets, trivia, and bracket data cleared.' });
   } catch (err) {
     return handleError(err);

@@ -24,7 +24,6 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
 
     const updates: Partial<typeof bracketEntries.$inferInsert> = {};
     if (has('label'))       updates.label       = String(body.label);
-    if (has('phase'))       updates.phase       = Number(body.phase);
     if (has('teams'))       updates.teams       = Array.isArray(body.teams)
                                                     ? body.teams.map((t: unknown) => String(t).trim()).filter(Boolean)
                                                     : [];

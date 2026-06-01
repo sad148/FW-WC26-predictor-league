@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
     if (entry.status === 'settled')   return fail('This bracket entry has already been settled.', 409);
     if (!entry.teams.includes(pick))  return fail('Pick must be one of the listed teams.');
 
-    const [window] = await db.select().from(bracketPhases).where(eq(bracketPhases.phase, entry.phase));
+    const [window] = await db.select().from(bracketPhases).where(eq(bracketPhases.phase, 2));
     const now = new Date();
     if (!window || !window.startTime || !window.endTime) {
       return fail('This bracket phase is not open for picks yet.', 409);

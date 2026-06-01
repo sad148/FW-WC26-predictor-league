@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { api, type BracketEntry, type BracketPhase, type League, type Match, type PhaseWindow, type Question } from '@/lib/api';
+import { api, type BracketEntry, type BracketPhase, type GroupEntry, type League, type Match, type PhaseWindow, type Question } from '@/lib/api';
 import { localInputToUtc, utcToLocalInput } from '@/lib/time';
 import { useAuth, useToast } from '../providers';
 
@@ -38,15 +38,17 @@ interface PhaseWindowDraft { startTime: string; endTime: string; }   // local-tz
 
 const PHASE_NAME: Record<number, string> = { 1: 'Phase 1 · Group Stage', 2: 'Phase 2 · Knockout' };
 
-// Bracket (Subsystem C) draft interfaces
+// Bracket Phase 2 (knockout) draft interfaces
 interface NewBracketEntryDraft {
   label: string;
-  phase: 1 | 2;
   teamsRaw: string;   // comma-separated team names
   sortOrder: string;
 }
-const EMPTY_BRACKET_ENTRY: NewBracketEntryDraft = { label: '', phase: 1, teamsRaw: '', sortOrder: '0' };
+const EMPTY_BRACKET_ENTRY: NewBracketEntryDraft = { label: '', teamsRaw: '', sortOrder: '0' };
 interface BracketEntryDraft { correctPick: string; }
+
+// Group standings (Phase 1) draft interfaces
+interface GroupSettleDraft { positions: string[] }  // [1st, 2nd, 3rd, 4th]
 
 export default function AdminPage() {
   const { isAdmin, isLoading, refresh } = useAuth();
@@ -71,7 +73,7 @@ export default function AdminPage() {
   const [pwDrafts, setPwDrafts]         = useState<Record<number, PhaseWindowDraft>>({});
   const [savingPhase, setSavingPhase]   = useState<number | null>(null);
 
-  // Bracket (Subsystem C) state
+  // Bracket Phase 2 (knockout) state
   const [bracketEntries, setBracketEntries]     = useState<BracketEntry[]>([]);
   const [newBE, setNewBE]                       = useState<NewBracketEntryDraft>(EMPTY_BRACKET_ENTRY);
   const [addingBE, setAddingBE]                 = useState(false);
@@ -80,6 +82,14 @@ export default function AdminPage() {
   const [bracketWindows, setBracketWindows]     = useState<BracketPhase[]>([]);
   const [bpwDrafts, setBpwDrafts]               = useState<Record<number, PhaseWindowDraft>>({});
   const [savingBracketPhase, setSavingBracketPhase] = useState<number | null>(null);
+
+  // Group standings (Phase 1) state
+  const [groupEntries, setGroupEntries]         = useState<GroupEntry[]>([]);
+  const [groupSettleDrafts, setGroupSettleDrafts] = useState<Record<number, GroupSettleDraft>>({});
+  const [savingGroupId, setSavingGroupId]       = useState<number | null>(null);
+  const [csvText, setCsvText]                   = useState('');
+  const [csvPreview, setCsvPreview]             = useState<{ groupName: string; teams: string }[]>([]);
+  const [importing, setImporting]               = useState(false);
 
   const loadFixtures = useCallback(async () => {
     try {
@@ -104,13 +114,21 @@ export default function AdminPage() {
     } catch (e) { toast('Error', (e as Error).message); }
   }, [toast]);
 
+  const loadGroups = useCallback(async () => {
+    try {
+      const r = await api.groupEntries();
+      setGroupEntries(r.groups);
+    } catch (e) { toast('Error', (e as Error).message); }
+  }, [toast]);
+
   useEffect(() => {
     if (!isAdmin) return;
     api.league().then(r => setLeague(r.league)).catch(() => {});
     loadFixtures();
     loadQuestions();
     loadBrackets();
-  }, [isAdmin, loadFixtures, loadQuestions, loadBrackets]);
+    loadGroups();
+  }, [isAdmin, loadFixtures, loadQuestions, loadBrackets, loadGroups]);
 
   function draftFor(m: Match): ResultDraft {
     return drafts[m.id] ?? {
@@ -283,6 +301,56 @@ export default function AdminPage() {
     }
   }
 
+  function parseCsv(text: string) {
+    const lines = text.trim().split('\n').slice(1).filter(l => l.trim());
+    const parsed = lines.map(line => {
+      const comma = line.indexOf(',');
+      if (comma === -1) return null;
+      const groupName = line.slice(0, comma).trim().toUpperCase();
+      const teams     = line.slice(comma + 1).trim();
+      if (!groupName || !teams) return null;
+      return { groupName, teams };
+    }).filter(Boolean) as { groupName: string; teams: string }[];
+    setCsvPreview(parsed);
+  }
+
+  async function importGroups() {
+    if (csvPreview.length === 0) return toast('Nothing to import', 'Parse a CSV first.');
+    setImporting(true);
+    try {
+      const r = await api.importGroups(csvPreview);
+      toast('✓ Imported', `${r.count} group(s) added.`);
+      setCsvText('');
+      setCsvPreview([]);
+      await loadGroups();
+    } catch (err) {
+      toast('Error', (err as Error).message);
+    } finally {
+      setImporting(false);
+    }
+  }
+
+  function groupSettleDraftFor(g: GroupEntry): GroupSettleDraft {
+    return groupSettleDrafts[g.id] ?? { positions: ['', '', '', ''] };
+  }
+
+  async function settleGroup(g: GroupEntry) {
+    const d = groupSettleDraftFor(g);
+    if (d.positions.some(p => !p)) return toast('Missing positions', 'Fill all 4 positions before settling.');
+    setSavingGroupId(g.id);
+    try {
+      const correctRanking = d.positions.join('|');
+      const res = await api.settleGroup(g.id, correctRanking);
+      toast('✓ Settled', `Group ${g.groupName} · ${res.scored} pick(s) scored`);
+      await loadGroups();
+      setGroupSettleDrafts(prev => { const c = { ...prev }; delete c[g.id]; return c; });
+    } catch (err) {
+      toast('Error', (err as Error).message);
+    } finally {
+      setSavingGroupId(null);
+    }
+  }
+
   async function addBracketEntry() {
     const label  = newBE.label.trim();
     const teams  = newBE.teamsRaw.split(',').map(s => s.trim()).filter(Boolean);
@@ -291,7 +359,7 @@ export default function AdminPage() {
     if (teams.length < 2) return toast('Missing teams', 'Enter at least 2 teams (comma-separated).');
     setAddingBE(true);
     try {
-      await api.addBracketEntry({ label, phase: newBE.phase, teams, sortOrder });
+      await api.addBracketEntry({ label, teams, sortOrder });
       toast('✓ Entry added', `Phase ${newBE.phase} · ${label}`);
       setNewBE(EMPTY_BRACKET_ENTRY);
       await loadBrackets();
@@ -756,11 +824,10 @@ export default function AdminPage() {
         </button>
       </div>
 
-      {/* ─── Bracket (Subsystem C): per-phase submission windows ─── */}
+      {/* ─── Bracket submission windows (both phases) ─── */}
       <div className="lform" style={{ marginBottom: '1.5rem', maxWidth: 'none' }}>
-        <div className="lform-title" style={{ color: 'var(--gold)' }}>BRACKET — PHASE WINDOWS</div>
+        <div className="lform-title" style={{ color: 'var(--gold)' }}>BRACKET — SUBMISSION WINDOWS</div>
         <p style={{ color: 'var(--off)', fontSize: 13, lineHeight: 1.6, marginBottom: '1rem' }}>
-          One open/close window per bracket phase. Players can submit picks only while inside the window.
           Phase 1 (group standings) locks at opening kickoff. Phase 2 (knockout) locks before first knockout match.
         </p>
         <div style={{ display: 'grid', gap: 8 }}>
@@ -780,22 +847,17 @@ export default function AdminPage() {
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10, alignItems: 'end' }}>
                   <div>
                     <div style={subLabel}>OPENS (your local tz)</div>
-                    <input
-                      type="datetime-local" value={d.startTime}
+                    <input type="datetime-local" value={d.startTime}
                       onChange={(e) => setBpwDraft(phase, { startTime: e.target.value })}
-                      style={{ ...cellInput, width: '100%', marginTop: 3 }}
-                    />
+                      style={{ ...cellInput, width: '100%', marginTop: 3 }} />
                   </div>
                   <div>
                     <div style={subLabel}>CLOSES (your local tz)</div>
-                    <input
-                      type="datetime-local" value={d.endTime}
+                    <input type="datetime-local" value={d.endTime}
                       onChange={(e) => setBpwDraft(phase, { endTime: e.target.value })}
-                      style={{ ...cellInput, width: '100%', marginTop: 3 }}
-                    />
+                      style={{ ...cellInput, width: '100%', marginTop: 3 }} />
                   </div>
-                  <button
-                    className="wsubmit" style={{ marginLeft: 0 }}
+                  <button className="wsubmit" style={{ marginLeft: 0 }}
                     disabled={savingBracketPhase === phase}
                     onClick={() => saveBracketPhaseWindow(phase)}
                   >{savingBracketPhase === phase ? 'Saving…' : 'Save Window'}</button>
@@ -806,55 +868,123 @@ export default function AdminPage() {
         </div>
       </div>
 
-      {/* ─── Bracket (Subsystem C): settle entries ─── */}
+      {/* ─── Phase 1: import group standings via CSV ─── */}
+      <div className="lform" style={{ marginBottom: '1.5rem' }}>
+        <div className="lform-title" style={{ color: 'var(--gold)' }}>GROUP STANDINGS — IMPORT</div>
+        <p style={{ color: 'var(--off)', fontSize: 13, lineHeight: 1.6, marginBottom: '0.75rem' }}>
+          CSV format — header row required, teams pipe-separated:<br />
+          <code style={{ color: 'var(--gold2)', fontSize: 12 }}>group,teams</code><br />
+          <code style={{ color: 'var(--gold2)', fontSize: 12 }}>A,Brazil|Argentina|Mexico|Serbia</code>
+        </p>
+        <div className="fg">
+          <textarea className="finput" rows={6}
+            placeholder={'group,teams\nA,Brazil|Argentina|Mexico|Serbia\nB,England|USA|Iran|Wales'}
+            value={csvText}
+            onChange={(e) => { setCsvText(e.target.value); parseCsv(e.target.value); }}
+            style={{ fontFamily: 'monospace', fontSize: 12, resize: 'vertical' }}
+          />
+        </div>
+        {csvPreview.length > 0 && (
+          <div style={{ marginBottom: '0.75rem' }}>
+            <div style={{ fontFamily: 'var(--font-cond)', fontSize: 11, color: 'var(--gold2)', letterSpacing: '.5px', marginBottom: 6 }}>
+              PREVIEW — {csvPreview.length} GROUP(S)
+            </div>
+            <div style={{ display: 'grid', gap: 4 }}>
+              {csvPreview.map((r, i) => (
+                <div key={i} style={{ fontFamily: 'var(--font-cond)', fontSize: 12, color: 'var(--off)', background: 'rgba(255,255,255,.04)', borderRadius: 4, padding: '4px 8px' }}>
+                  <strong style={{ color: 'var(--white)' }}>Group {r.groupName}</strong> — {r.teams.split('|').join(', ')}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        <button className="btn-gold" style={{ width: '100%' }} disabled={importing || csvPreview.length === 0} onClick={importGroups}>
+          {importing ? 'Importing…' : `Import ${csvPreview.length || ''} Group(s)`}
+        </button>
+      </div>
+
+      {/* ─── Phase 1: settle groups ─── */}
       <div className="lform" style={{ marginBottom: '1.5rem', maxWidth: 'none' }}>
-        <div className="lform-title" style={{ color: 'var(--gold)' }}>BRACKET — SETTLE</div>
+        <div className="lform-title" style={{ color: 'var(--gold)' }}>GROUP STANDINGS — SETTLE</div>
+        {groupEntries.length === 0 ? (
+          <p style={{ color: 'var(--off)', fontSize: 13 }}>No groups imported yet.</p>
+        ) : (
+          <div style={{ display: 'grid', gap: 8 }}>
+            {groupEntries.map(g => {
+              const teams = g.teams.split('|');
+              const d     = groupSettleDraftFor(g);
+              const sel   = { background: 'rgba(255,255,255,.06)', border: '1px solid var(--border)', color: 'var(--white)', fontFamily: 'var(--font-cond)', fontSize: 13, padding: '5px 8px', borderRadius: 5, cursor: 'pointer', width: '100%' };
+              return (
+                <div key={g.id} style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 8, padding: '12px 14px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                    <div style={{ fontFamily: 'var(--font-cond)', fontSize: 14, fontWeight: 700 }}>Group {g.groupName}</div>
+                    <div style={{ fontFamily: 'var(--font-cond)', fontSize: 12, color: g.status === 'settled' ? '#2ecc71' : 'var(--off)' }}>
+                      {g.status === 'settled' ? `✓ Settled — ${g.correctRanking?.split('|').join(' › ')}` : 'Awaiting result'}
+                    </div>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 8, alignItems: 'end' }}>
+                    {['1st', '2nd', '3rd', '4th'].map((pos, i) => (
+                      <div key={pos}>
+                        <div style={{ fontFamily: 'var(--font-cond)', fontSize: 11, color: 'var(--gold2)', letterSpacing: '.5px', marginBottom: 3 }}>{pos.toUpperCase()}</div>
+                        <select style={sel} value={d.positions[i]}
+                          onChange={ev => {
+                            const next = [...d.positions];
+                            next[i] = ev.target.value;
+                            setGroupSettleDrafts(prev => ({ ...prev, [g.id]: { positions: next } }));
+                          }}>
+                          <option value="">— pick —</option>
+                          {teams.map(t => <option key={t} value={t}>{t}</option>)}
+                        </select>
+                      </div>
+                    ))}
+                    <button className="wsubmit" style={{ marginLeft: 0, alignSelf: 'end' }}
+                      disabled={savingGroupId === g.id}
+                      onClick={() => settleGroup(g)}
+                    >{savingGroupId === g.id ? 'Saving…' : g.status === 'settled' ? 'Re-score' : 'Settle & Score'}</button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* ─── Phase 2: knockout entries — settle ─── */}
+      <div className="lform" style={{ marginBottom: '1.5rem', maxWidth: 'none' }}>
+        <div className="lform-title" style={{ color: 'var(--gold)' }}>KNOCKOUT (PHASE 2) — SETTLE</div>
         {bracketEntries.length === 0 ? (
-          <p style={{ color: 'var(--off)', fontSize: 13 }}>No bracket entries yet. Add one below.</p>
+          <p style={{ color: 'var(--off)', fontSize: 13 }}>No knockout entries yet. Add one below.</p>
         ) : (
           <div style={{ display: 'grid', gap: 8 }}>
             {bracketEntries.map(e => {
               const d = beDraftFor(e);
               return (
-                <div key={e.id} style={{
-                  background: 'var(--card)', border: '1px solid var(--border)',
-                  borderRadius: 8, padding: '12px 14px',
-                }}>
+                <div key={e.id} style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 8, padding: '12px 14px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 8 }}>
                     <div>
                       <div style={{ fontFamily: 'var(--font-cond)', fontSize: 14, fontWeight: 700 }}>{e.label}</div>
                       <div style={{ fontFamily: 'var(--font-cond)', fontSize: 12, color: 'var(--off)', marginTop: 2 }}>
-                        Phase {e.phase} · 3 pts · teams: {e.teams.join(', ')}
+                        3 pts · teams: {e.teams.join(', ')}
                       </div>
                     </div>
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 8, alignItems: 'end' }}>
                     <div>
                       <div style={{ fontFamily: 'var(--font-cond)', fontSize: 11, color: 'var(--gold2)', letterSpacing: '.5px', marginBottom: 3 }}>CORRECT TEAM</div>
-                      <select
-                        value={d.correctPick}
+                      <select value={d.correctPick}
                         onChange={(ev) => setBeDraft(e, { correctPick: ev.target.value })}
-                        style={{
-                          background: 'rgba(255,255,255,.06)', border: '1px solid var(--border)',
-                          color: 'var(--white)', fontFamily: 'var(--font-cond)', fontSize: 13,
-                          padding: '5px 8px', borderRadius: 5, cursor: 'pointer', width: '100%',
-                        }}
-                      >
+                        style={{ background: 'rgba(255,255,255,.06)', border: '1px solid var(--border)', color: 'var(--white)', fontFamily: 'var(--font-cond)', fontSize: 13, padding: '5px 8px', borderRadius: 5, cursor: 'pointer', width: '100%' }}>
                         <option value="">— not set —</option>
                         {e.teams.map(t => <option key={t} value={t}>{t}</option>)}
                       </select>
                     </div>
                     <div>
                       <div style={{ fontFamily: 'var(--font-cond)', fontSize: 11, color: 'var(--gold2)', letterSpacing: '.5px', marginBottom: 3 }}>STATUS</div>
-                      <div style={{
-                        fontFamily: 'var(--font-cond)', fontSize: 13, fontWeight: 700, padding: '5px 0',
-                        color: e.status === 'settled' ? '#2ecc71' : 'var(--off)',
-                      }}>
+                      <div style={{ fontFamily: 'var(--font-cond)', fontSize: 13, fontWeight: 700, padding: '5px 0', color: e.status === 'settled' ? '#2ecc71' : 'var(--off)' }}>
                         {e.status === 'settled' ? `✓ Settled — ${e.correctPick}` : 'Awaiting result'}
                       </div>
                     </div>
-                    <button
-                      className="wsubmit" style={{ marginLeft: 0, alignSelf: 'end' }}
+                    <button className="wsubmit" style={{ marginLeft: 0, alignSelf: 'end' }}
                       disabled={savingBEId === e.id}
                       onClick={() => settleBracketEntry(e)}
                     >{savingBEId === e.id ? 'Saving…' : e.status === 'settled' ? 'Re-score' : 'Settle & Score'}</button>
@@ -866,34 +996,24 @@ export default function AdminPage() {
         )}
       </div>
 
-      {/* ─── Bracket (Subsystem C): add entry ─── */}
+      {/* ─── Phase 2: knockout entries — add ─── */}
       <div className="lform" style={{ marginBottom: '1.5rem' }}>
-        <div className="lform-title" style={{ color: 'var(--mex2)' }}>ADD BRACKET ENTRY</div>
+        <div className="lform-title" style={{ color: 'var(--mex2)' }}>KNOCKOUT (PHASE 2) — ADD ENTRY</div>
         <div className="fg"><label className="flabel">Label</label>
-          <input className="finput" placeholder="e.g. Group A – 1st Place"
+          <input className="finput" placeholder="e.g. R16 Match 1 Winner"
                  value={newBE.label} onChange={(e) => setNewBE({ ...newBE, label: e.target.value })} />
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-          <div className="fg"><label className="flabel">Phase</label>
-            <select className="finput" style={{ cursor: 'pointer' }}
-                    value={newBE.phase}
-                    onChange={(e) => setNewBE({ ...newBE, phase: Number(e.target.value) as 1 | 2 })}>
-              <option value={1}>Phase 1 (Group Standings)</option>
-              <option value={2}>Phase 2 (Knockout Tree)</option>
-            </select>
-          </div>
-          <div className="fg"><label className="flabel">Sort Order</label>
-            <input className="finput" type="number" min={0}
-                   value={newBE.sortOrder}
-                   onChange={(e) => setNewBE({ ...newBE, sortOrder: e.target.value })} />
-          </div>
+        <div className="fg"><label className="flabel">Sort Order</label>
+          <input className="finput" type="number" min={0}
+                 value={newBE.sortOrder}
+                 onChange={(e) => setNewBE({ ...newBE, sortOrder: e.target.value })} />
         </div>
         <div className="fg"><label className="flabel">Teams (comma-separated)</label>
-          <input className="finput" placeholder="e.g. Brazil, Argentina, France, Germany"
+          <input className="finput" placeholder="e.g. Brazil, Argentina"
                  value={newBE.teamsRaw} onChange={(e) => setNewBE({ ...newBE, teamsRaw: e.target.value })} />
         </div>
         <button className="btn-gold" style={{ width: '100%' }} disabled={addingBE} onClick={addBracketEntry}>
-          {addingBE ? 'Adding…' : 'Add Bracket Entry'}
+          {addingBE ? 'Adding…' : 'Add Knockout Entry'}
         </button>
       </div>
 

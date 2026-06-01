@@ -85,10 +85,11 @@ export interface LeaderboardRow {
   losses: number;
   pending: number;
   wallet: number;
-  matchPts: number; // sum of won match wagers
-  triviaPts: number; // sum of question_answers.points_awarded
-  bracketPts: number; // sum of bracket_picks.points_awarded (3 pts each)
-  totalPts: number; // wallet + triviaPts + bracketPts (PRD §4 formula)
+  matchPts: number;
+  triviaPts: number;
+  bracketPts: number;
+  groupPts: number;
+  totalPts: number;
 }
 
 export interface Question {
@@ -118,9 +119,26 @@ export interface Answer {
   createdAt: string;
 }
 
+export interface GroupEntry {
+  id: number;
+  groupName: string;
+  teams: string;           // pipe-separated
+  correctRanking: string | null;
+  status: "open" | "settled";
+  createdAt: string;
+}
+
+export interface GroupPick {
+  id: number;
+  userId: number;
+  groupId: number;
+  ranking: string;         // pipe-separated 1st→4th
+  pointsAwarded: number;
+  createdAt: string;
+}
+
 export interface BracketEntry {
   id: number;
-  phase: number;
   label: string;
   teams: string[];
   correctPick: string | null;
@@ -256,12 +274,31 @@ export const api = {
       body: JSON.stringify(b),
     }),
 
-  // Bracket (Subsystem C)
+  // Bracket Phase 1 — group standings
+  groupEntries: () =>
+    request<{ groups: GroupEntry[] }>("/api/group-entries"),
+  importGroups: (groups: { groupName: string; teams: string }[]) =>
+    request<{ count: number }>("/api/group-entries/bulk", {
+      method: "POST",
+      body: JSON.stringify({ groups }),
+    }),
+  settleGroup: (id: number, correctRanking: string) =>
+    request<{ group: GroupEntry; scored: number }>(`/api/group-entries/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ correctRanking }),
+    }),
+  myGroupPicks: () => request<{ picks: GroupPick[] }>("/api/group-picks"),
+  saveGroupPick: (b: { groupId: number; ranking: string }) =>
+    request<{ pick: GroupPick }>("/api/group-picks", {
+      method: "POST",
+      body: JSON.stringify(b),
+    }),
+
+  // Bracket Phase 2 — knockout tree
   bracketEntries: () =>
     request<{ entries: BracketEntry[] }>("/api/bracket-entries"),
   addBracketEntry: (b: {
     label: string;
-    phase: number;
     teams: string[];
     sortOrder?: number;
   }) =>
@@ -273,7 +310,6 @@ export const api = {
     id: number,
     b: Partial<{
       label: string;
-      phase: number;
       teams: string[];
       sortOrder: number;
       correctPick: string | null;
