@@ -28,7 +28,6 @@ interface FixtureDraft {
   date: string;
   phase: "group" | "knockout";
   group: string;
-  venue: string;
   startTime: string;
   endTime: string; // local tz datetime-local strings
 }
@@ -39,7 +38,6 @@ const EMPTY_FIXTURE: FixtureDraft = {
   date: "",
   phase: "group",
   group: "",
-  venue: "",
   startTime: "",
   endTime: "",
 };
@@ -260,7 +258,6 @@ export default function AdminPage() {
         date: newFix.date.trim() || undefined,
         phase: newFix.phase,
         groupName: newFix.group.trim() || null,
-        venue: newFix.venue.trim() || undefined,
         startTime: localInputToUtc(newFix.startTime),
         endTime: localInputToUtc(newFix.endTime),
       } as Parameters<typeof api.addFixture>[0]);
@@ -775,7 +772,7 @@ export default function AdminPage() {
                         fontWeight: 700,
                       }}
                     >
-                      {m.flagA || "⚽"} {m.teamA} vs {m.teamB} {m.flagB || ""}
+                      {m.teamA} vs {m.teamB}
                     </div>
                     <div
                       style={{
@@ -786,7 +783,6 @@ export default function AdminPage() {
                       }}
                     >
                       {m.date}
-                      {m.venue ? ` · ${m.venue}` : ""}
                     </div>
                   </div>
 
@@ -990,15 +986,6 @@ export default function AdminPage() {
             placeholder="A, B, R16, QF…"
             value={newFix.group}
             onChange={(e) => setNewFix({ ...newFix, group: e.target.value })}
-          />
-        </div>
-        <div className="fg">
-          <label className="flabel">Venue</label>
-          <input
-            className="finput"
-            placeholder="e.g. MetLife Stadium, NJ"
-            value={newFix.venue}
-            onChange={(e) => setNewFix({ ...newFix, venue: e.target.value })}
           />
         </div>
         <div

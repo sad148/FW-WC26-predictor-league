@@ -35,9 +35,6 @@ export async function POST(req: NextRequest) {
         groupName: body.group ? String(body.group) : null,
         teamA,
         teamB,
-        flagA:     body.flagA || '⚽',
-        flagB:     body.flagB || '⚽',
-        venue:     body.venue || null,
         startTime, endTime,
       })
       .returning();

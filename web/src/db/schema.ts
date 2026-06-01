@@ -26,14 +26,8 @@ export const fixtures = pgTable('fixtures', {
   groupName: text('group_name'),                            // 'A', 'R16', etc.
   teamA:     text('team_a').notNull(),
   teamB:     text('team_b').notNull(),
-  flagA:     text('flag_a').default('⚽'),
-  flagB:     text('flag_b').default('⚽'),
-  venue:     text('venue'),
   scoreA:    integer('score_a'),
   scoreB:    integer('score_b'),
-  // Legacy field — superseded by start/end times + score presence. Kept nullable
-  // for DB compat; no code reads it.
-  status:    text('status'),
   // Betting window in UTC. Bets are accepted only while now is in [startTime, endTime).
   // Display in the client is converted to the user's local timezone.
   startTime: timestamp('start_time', { withTimezone: true }),

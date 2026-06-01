@@ -54,9 +54,6 @@ export interface Match {
   groupName: string | null;
   teamA: string;
   teamB: string;
-  flagA: string | null;
-  flagB: string | null;
-  venue: string | null;
   scoreA: number | null;
   scoreB: number | null;
   startTime: string | null; // UTC ISO; betting opens at this moment

@@ -172,13 +172,11 @@ export default function MatchesPage() {
                 <div className="mc-top">
                   <span>
                     {m.phase === 'group' ? `Group ${m.groupName || '?'}` : (m.groupName || 'Knockout')}
-                    {m.venue ? ` · ${m.venue}` : ''}
                   </span>
                   <span className={`st ${STATE_CLS[state]}`}>{MATCH_STATE_LABEL[state]}</span>
                 </div>
                 <div className="mc-body">
                   <div className="team">
-                    <span className="tf">{m.flagA || '⚽'}</span>
                     <span className="tn">{m.teamA}</span>
                   </div>
                   <div className="mc-score">
@@ -187,7 +185,6 @@ export default function MatchesPage() {
                       : <div className="sc-vs">VS</div>}
                   </div>
                   <div className="team">
-                    <span className="tf">{m.flagB || '⚽'}</span>
                     <span className="tn">{m.teamB}</span>
                   </div>
                 </div>

@@ -93,7 +93,7 @@ export default function MyBetsPage() {
               <div className="bet-card" key={b.id}>
                 <div>
                   <div className="bet-match">
-                    {m?.flagA || '⚽'} {m?.teamA || '?'} vs {m?.teamB || '?'} {m?.flagB || ''}
+                    {m?.teamA || '?'} vs {m?.teamB || '?'}
                   </div>
                   <div className="bet-preds">
                     {plines.length > 0
