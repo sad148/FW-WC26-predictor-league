@@ -257,7 +257,8 @@ export const api = {
     }),
 
   // Bracket (Subsystem C)
-  bracketEntries: () => request<{ entries: BracketEntry[] }>("/api/bracket-entries"),
+  bracketEntries: () =>
+    request<{ entries: BracketEntry[] }>("/api/bracket-entries"),
   addBracketEntry: (b: {
     label: string;
     phase: number;

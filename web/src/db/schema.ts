@@ -56,9 +56,10 @@ export const bets = pgTable('bets', {
   q2:        text('q2'),                                    // first scorer team or 'No Goal'
   q3:        text('q3'),                                    // '0–1 Goals' | '2–3 Goals' | '4+ Goals'
   q4:        text('q4'),                                    // 'Yes' | 'No' (clean sheet)
-  wager:     integer('wager').notNull(),
-  outcome:   text('outcome').notNull().default('pending'),  // 'pending' | 'win' | 'loss'
-  createdAt: timestamp('created_at').defaultNow().notNull(),
+  wager:         integer('wager').notNull(),
+  outcome:       text('outcome').notNull().default('pending'),       // 'pending' | 'win' | 'loss'
+  pointsAwarded: integer('points_awarded').notNull().default(0),     // set on settlement: wager + bonus if win, 0 if loss
+  createdAt:     timestamp('created_at').defaultNow().notNull(),
 }, (t) => ({
   userMatchUnique: unique('bets_user_match_unique').on(t.userId, t.matchId),
 }));

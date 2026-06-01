@@ -112,7 +112,7 @@ export default function MatchesPage() {
     <section>
       <div className="sh">
         <div className="sh-title">MATCHES</div>
-        <div className="sh-sub">Lock predictions before kickoff · 10 pts max per match</div>
+        <div className="sh-sub">Lock predictions before kickoff · 8 pts max per match</div>
       </div>
 
       <div className="phase-tabs">
@@ -232,15 +232,15 @@ export default function MatchesPage() {
                       <span className="wlabel">Wager</span>
                       <input
                         className="winput"
-                        type="number" min={1} max={10}
+                        type="number" min={1} max={8}
                         value={existing?.wager ?? draft.wager}
                         disabled={!canBet}
                         onChange={(e) => {
-                          const v = Math.min(10, Math.max(1, parseInt(e.target.value) || 1));
+                          const v = Math.min(8, Math.max(1, parseInt(e.target.value) || 1));
                           setDraft(m.id, { wager: v });
                         }}
                       />
-                      <span className="wmax">pts / 10 max</span>
+                      <span className="wmax">pts / 8 max</span>
                       {existing
                         ? <span className="saved-badge">✓ Submitted</span>
                         : <button

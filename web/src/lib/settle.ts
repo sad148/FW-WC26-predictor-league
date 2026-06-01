@@ -10,57 +10,79 @@ interface Preds {
 }
 
 /**
- * Returns 'win' or 'loss' for a single bet.
- * A bet WINS if at least one answered prediction is correct (any-correct rule).
- * A bet LOSES only when every evaluatable answered prediction is wrong.
+ * Scores a single bet under the partial-credit rule:
+ *   - Only questions the player actually answered are counted.
+ *   - For q2 (first scorer) and q4 (cards), also requires the admin to have entered the answer;
+ *     if the admin input is missing, that question is excluded.
+ *   - Each correct answer earns wager / answeredCount points (rounded).
+ *   - 0 correct → loss, pointsAwarded = 0.
+ *   - ≥1 correct → win, pointsAwarded = wager + round(correctCount × wager / answeredCount).
  *
- *   Q1 (result):    derived from scoreA/scoreB — always evaluatable.
- *   Q2 (1st goal):  checked against admin-entered firstScorer — skipped if null.
- *   Q3 (goals O/U): derived from scoreA + scoreB — always evaluatable.
- *   Q4 (cards):     checked against admin-entered totalCards — skipped if null.
+ * Settlement is expected to be blocked upstream until all admin inputs are present,
+ * so the q2/q4 guard here is a safety net rather than the primary gate.
  */
 export function evaluateBet(
   preds: Preds,
   scoreA: number,
   scoreB: number,
-  firstScorer: string | null = null,
-  totalCards:  number | null = null,
-): 'win' | 'loss' {
+  firstScorer: string | null,
+  totalCards:  number | null,
+  wager: number,
+): { outcome: 'win' | 'loss'; pointsAwarded: number } {
   const result = scoreA > scoreB ? 'Home Win' : scoreB > scoreA ? 'Away Win' : 'Draw';
   const total  = scoreA + scoreB;
 
-  // Q1 — match result
-  if (preds.q1 && preds.q1 === result) return 'win';
+  let answered = 0;
+  let correct  = 0;
 
-  // Q2 — first scorer (only evaluatable when admin has entered the answer)
-  if (preds.q2 && firstScorer && preds.q2 === firstScorer) return 'win';
+  if (preds.q1) {
+    answered++;
+    if (preds.q1 === result) correct++;
+  }
 
-  // Q3 — goals over/under
+  if (preds.q2 && firstScorer !== null) {
+    answered++;
+    if (preds.q2 === firstScorer) correct++;
+  }
+
   if (preds.q3) {
-    const correct =
+    answered++;
+    const ok =
       (preds.q3 === '0–1 Goals' && total <= 1) ||
       (preds.q3 === '2–3 Goals' && total >= 2 && total <= 3) ||
       (preds.q3 === '4+ Goals'  && total >= 4);
-    if (correct) return 'win';
+    if (ok) correct++;
   }
 
-  // Q4 — total cards (only evaluatable when admin has entered the answer)
   if (preds.q4 && totalCards !== null) {
-    const correct =
+    answered++;
+    const ok =
       (preds.q4 === '0–2 Cards' && totalCards <= 2) ||
       (preds.q4 === '3–5 Cards' && totalCards >= 3 && totalCards <= 5) ||
       (preds.q4 === '6+ Cards'  && totalCards >= 6);
-    if (correct) return 'win';
+    if (ok) correct++;
   }
 
-  return 'loss';
+  if (answered === 0 || correct === 0) {
+    return { outcome: 'loss', pointsAwarded: 0 };
+  }
+
+  const pts = Math.round(correct * wager / answered);
+  return { outcome: 'win', pointsAwarded: pts };
 }
 
-/** Flip every pending bet on this match to win/loss based on the score + admin-entered Q2/Q4 answers. */
+/**
+ * Settles all pending bets for a match.
+ * Returns 0 and does nothing if firstScorer or totalCards is not yet entered —
+ * every subsequent PATCH to the fixture will retry, so the last admin input
+ * (whichever of firstScorer / totalCards is entered last) triggers final settlement.
+ */
 export async function settlePendingBets(matchId: number, scoreA: number, scoreB: number): Promise<number> {
   const [match] = await db.select().from(fixtures).where(eq(fixtures.id, matchId));
   const firstScorer = match?.firstScorer ?? null;
   const totalCards  = match?.totalCards  ?? null;
+
+  if (firstScorer === null || totalCards === null) return 0;
 
   const pending = await db
     .select()
@@ -68,8 +90,8 @@ export async function settlePendingBets(matchId: number, scoreA: number, scoreB:
     .where(and(eq(bets.matchId, matchId), eq(bets.outcome, 'pending')));
 
   for (const b of pending) {
-    const outcome = evaluateBet(b, scoreA, scoreB, firstScorer, totalCards);
-    await db.update(bets).set({ outcome }).where(eq(bets.id, b.id));
+    const { outcome, pointsAwarded } = evaluateBet(b, scoreA, scoreB, firstScorer, totalCards, b.wager);
+    await db.update(bets).set({ outcome, pointsAwarded }).where(eq(bets.id, b.id));
   }
   return pending.length;
 }

@@ -45,8 +45,9 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     const [row] = await db.update(fixtures).set(updates).where(eq(fixtures.id, matchId)).returning();
     if (!row) return fail('Match not found.', 404);
 
-    // Settle pending bets whenever both scores are present after this update.
-    // settlePendingBets only touches rows still in 'pending', so it's idempotent.
+    // Attempt settlement on every update. settlePendingBets blocks internally until
+    // all four admin inputs (scoreA, scoreB, firstScorer, totalCards) are present,
+    // so the last one entered triggers settlement. Only touches pending rows (idempotent).
     let settled = 0;
     if (row.scoreA !== null && row.scoreB !== null) {
       settled = await settlePendingBets(matchId, row.scoreA, row.scoreB);

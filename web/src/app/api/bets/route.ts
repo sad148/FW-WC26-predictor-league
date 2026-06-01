@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
     const matchId = parseInt(String(body.matchId), 10);
     const wager   = parseInt(String(body.wager), 10);
     if (isNaN(matchId))                   return fail('matchId is required.');
-    if (isNaN(wager) || wager < 1 || wager > 10) return fail('Wager must be between 1 and 10.');
+    if (isNaN(wager) || wager < 1 || wager > 8) return fail('Wager must be between 1 and 8.');
 
     const [match] = await db.select().from(fixtures).where(eq(fixtures.id, matchId));
     if (!match) return fail('Match not found.', 404);
