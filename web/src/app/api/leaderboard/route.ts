@@ -10,7 +10,7 @@ import { ok, handleError } from '@/lib/responses';
  *   bracketPts = sum(bracket_picks.points_awarded)      (Subsystem C Phase 2, 3 pts per correct pick)
  *   groupPts   = sum(group_picks.points_awarded)        (Subsystem C Phase 1, 1 pt per correct position)
  *   totalPts   = wallet + triviaPts + bracketPts + groupPts
- * Ranked by totalPts desc, then wins desc, then wallet desc.
+ * Ranked by totalPts desc, then wallet desc.
  * LATERAL subqueries avoid cross-products.
  */
 export async function GET() {
@@ -18,8 +18,6 @@ export async function GET() {
     const result = await db.execute<{
       playerId:   string;
       name:       string;
-      wins:       number;
-      losses:     number;
       pending:    number;
       wallet:     number;
       matchPts:   number;
@@ -31,8 +29,6 @@ export async function GET() {
       SELECT
         u.id::text      AS "playerId",
         u.name          AS "name",
-        m.wins          AS "wins",
-        m.losses        AS "losses",
         m.pending       AS "pending",
         m.wallet        AS "wallet",
         m.match_pts     AS "matchPts",
@@ -43,13 +39,11 @@ export async function GET() {
       FROM users u
       LEFT JOIN LATERAL (
         SELECT
-          COALESCE(SUM(CASE WHEN outcome = 'win'     THEN 1 ELSE 0 END), 0)::int AS wins,
-          COALESCE(SUM(CASE WHEN outcome = 'loss'    THEN 1 ELSE 0 END), 0)::int AS losses,
           COALESCE(SUM(CASE WHEN outcome = 'pending' THEN 1 ELSE 0 END), 0)::int AS pending,
           (100 + COALESCE(SUM(
             -wager + CASE WHEN outcome != 'pending' THEN points_awarded ELSE 0 END
           ), 0))::int AS wallet,
-          COALESCE(SUM(CASE WHEN outcome = 'win' THEN points_awarded ELSE 0 END), 0)::int AS match_pts
+          COALESCE(SUM(CASE WHEN outcome != 'pending' THEN points_awarded ELSE 0 END), 0)::int AS match_pts
         FROM bets WHERE user_id = u.id
       ) m ON TRUE
       LEFT JOIN LATERAL (
@@ -64,7 +58,7 @@ export async function GET() {
         SELECT COALESCE(SUM(points_awarded), 0)::int AS group_pts
         FROM group_picks WHERE user_id = u.id
       ) g ON TRUE
-      ORDER BY "totalPts" DESC, "wins" DESC, "wallet" DESC
+      ORDER BY "totalPts" DESC, "wallet" DESC
     `);
     return ok({ leaderboard: result.rows });
   } catch (err) {

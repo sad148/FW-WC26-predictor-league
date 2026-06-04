@@ -77,8 +77,6 @@ export interface Bet {
 export interface LeaderboardRow {
   playerId: string;
   name: string;
-  wins: number;
-  losses: number;
   pending: number;
   wallet: number;
   matchPts: number;
