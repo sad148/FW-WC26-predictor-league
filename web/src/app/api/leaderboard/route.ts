@@ -4,7 +4,7 @@ import { ok, handleError } from '@/lib/responses';
 
 /**
  * GET /api/leaderboard — aggregates per user.
- *   wallet     = 100 + sum(win pointsAwarded) - sum(loss wagers)
+ *   wallet     = 100 - sum(all wagers) + sum(settled pointsAwarded)
  *   matchPts   = sum(win pointsAwarded)
  *   triviaPts  = sum(question_answers.points_awarded)   (Subsystem B)
  *   bracketPts = sum(bracket_picks.points_awarded)      (Subsystem C Phase 2, 3 pts per correct pick)
@@ -46,10 +46,9 @@ export async function GET() {
           COALESCE(SUM(CASE WHEN outcome = 'win'     THEN 1 ELSE 0 END), 0)::int AS wins,
           COALESCE(SUM(CASE WHEN outcome = 'loss'    THEN 1 ELSE 0 END), 0)::int AS losses,
           COALESCE(SUM(CASE WHEN outcome = 'pending' THEN 1 ELSE 0 END), 0)::int AS pending,
-          (100 + COALESCE(SUM(CASE
-            WHEN outcome = 'win'  THEN points_awarded
-            WHEN outcome = 'loss' THEN -wager
-            ELSE 0 END), 0))::int AS wallet,
+          (100 + COALESCE(SUM(
+            -wager + CASE WHEN outcome != 'pending' THEN points_awarded ELSE 0 END
+          ), 0))::int AS wallet,
           COALESCE(SUM(CASE WHEN outcome = 'win' THEN points_awarded ELSE 0 END), 0)::int AS match_pts
         FROM bets WHERE user_id = u.id
       ) m ON TRUE

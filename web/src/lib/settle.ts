@@ -10,16 +10,13 @@ interface Preds {
 }
 
 /**
- * Scores a single bet under the partial-credit rule:
- *   - Only questions the player actually answered are counted.
- *   - For q2 (first scorer) and q4 (cards), also requires the admin to have entered the answer;
- *     if the admin input is missing, that question is excluded.
- *   - Each correct answer earns wager / answeredCount points (rounded).
- *   - 0 correct → loss, pointsAwarded = 0.
- *   - ≥1 correct → win, pointsAwarded = wager + round(correctCount × wager / answeredCount).
- *
- * Settlement is expected to be blocked upstream until all admin inputs are present,
- * so the q2/q4 guard here is a safety net rather than the primary gate.
+ * Scores a single bet:
+ *   - The wager is always deducted upfront (handled in the leaderboard wallet query).
+ *   - Each question is worth wager / answeredCount points.
+ *   - A correct answer pays back 2× that unit; a wrong answer pays back 0.
+ *   - pointsAwarded = round(2 × correctCount × wager / answeredCount)
+ *   - 0 correct → loss, pointsAwarded = 0 (full wager lost).
+ *   - ≥1 correct → win.
  */
 export function evaluateBet(
   preds: Preds,
@@ -63,12 +60,12 @@ export function evaluateBet(
     if (ok) correct++;
   }
 
-  if (answered === 0 || correct === 0) {
+  if (answered === 0) {
     return { outcome: 'loss', pointsAwarded: 0 };
   }
 
-  const pts = Math.round(correct * wager / answered);
-  return { outcome: 'win', pointsAwarded: pts };
+  const pts = Math.round(2 * correct * wager / answered);
+  return { outcome: correct > 0 ? 'win' : 'loss', pointsAwarded: pts };
 }
 
 /**
