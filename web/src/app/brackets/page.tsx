@@ -162,7 +162,7 @@ export default function BracketsPage() {
           <p>No groups set up yet.</p>
         </div>
       ) : (
-        <div className="matches-grid">
+        <div className="matches-grid-3">
           {groups.map(g => {
             const teams    = g.teams.split('|');
             const draft    = groupDraft(g.id, teams);

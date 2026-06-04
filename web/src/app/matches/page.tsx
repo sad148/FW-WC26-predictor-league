@@ -159,7 +159,7 @@ export default function MatchesPage() {
           </p>
         </div>
       ) : (
-        <div className="matches-grid">
+        <div className="matches-grid-2">
           {filtered.map(m => {
             const existing = betByMatch.get(m.id);
             const state    = matchState(m, now);
