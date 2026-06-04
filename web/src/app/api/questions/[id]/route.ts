@@ -39,9 +39,8 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     let settled = 0;
     if (row.status === 'settled' && row.winningAnswer) {
       const expected = row.winningAnswer.trim().toLowerCase();
-      const pending  = await db.select().from(questionAnswers).where(eq(questionAnswers.questionId, qid));
-      for (const a of pending) {
-        if (a.outcome !== 'pending') continue;
+      const all = await db.select().from(questionAnswers).where(eq(questionAnswers.questionId, qid));
+      for (const a of all) {
         const correct = a.answer.trim().toLowerCase() === expected;
         await db.update(questionAnswers).set({
           outcome:       correct ? 'win' : 'loss',

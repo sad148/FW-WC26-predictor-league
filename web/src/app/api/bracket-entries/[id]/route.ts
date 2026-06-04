@@ -54,7 +54,6 @@ export async function PATCH(
         .from(bracketPicks)
         .where(eq(bracketPicks.entryId, eid));
       for (const p of picks) {
-        if (p.outcome !== "pending") continue;
         const correct = p.pick.trim().toLowerCase() === expected;
         await db
           .update(bracketPicks)
