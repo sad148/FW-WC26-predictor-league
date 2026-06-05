@@ -6,12 +6,10 @@ import { ok, handleError } from '@/lib/responses';
  * GET /api/leaderboard — aggregates per user.
  *   wallet     = 100 - sum(all wagers) + sum(settled pointsAwarded)
  *   matchPts   = sum(win pointsAwarded)
- *   triviaPts  = sum(question_answers.points_awarded)   (Subsystem B)
- *   bracketPts = sum(bracket_picks.points_awarded)      (Subsystem C Phase 2, 3 pts per correct pick)
- *   groupPts   = sum(group_picks.points_awarded)        (Subsystem C Phase 1, 1 pt per correct position)
- *   totalPts   = wallet + triviaPts + bracketPts + groupPts
+ *   triviaPts  = sum(question_answers.points_awarded)
+ *   bracketPts = sum(bracket_picks + group_picks pointsAwarded)  (3 pts per correct pick)
+ *   totalPts   = wallet + triviaPts + bracketPts
  * Ranked by totalPts desc, then wallet desc.
- * LATERAL subqueries avoid cross-products.
  */
 export async function GET() {
   try {
@@ -23,7 +21,6 @@ export async function GET() {
       matchPts:   number;
       triviaPts:  number;
       bracketPts: number;
-      groupPts:   number;
       totalPts:   number;
     }>(sql`
       SELECT
@@ -33,8 +30,7 @@ export async function GET() {
         m.wallet        AS "wallet",
         m.match_pts     AS "matchPts",
         t.trivia_pts    AS "triviaPts",
-        b.bracket_pts   AS "bracketPts",
-        g.group_pts     AS "groupPts",
+        (b.bracket_pts + g.group_pts)::int AS "bracketPts",
         (m.wallet + t.trivia_pts + b.bracket_pts + g.group_pts)::int AS "totalPts"
       FROM users u
       LEFT JOIN LATERAL (
