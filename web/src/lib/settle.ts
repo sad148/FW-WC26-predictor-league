@@ -12,9 +12,10 @@ interface Preds {
 /**
  * Scores a single bet:
  *   - The wager is always deducted upfront (handled in the leaderboard wallet query).
- *   - Each question is worth wager / answeredCount points.
- *   - A correct answer pays back 2× that unit; a wrong answer pays back 0.
- *   - pointsAwarded = round(2 × correctCount × wager / answeredCount)
+ *   - There are always 4 questions; unanswered questions count as incorrect.
+ *   - Each question is worth wager / 4 points.
+ *   - A correct answer pays back 2× that unit; a wrong/unanswered answer pays back 0.
+ *   - pointsAwarded = round(2 × correctCount × wager / 4)
  *   - 0 correct → loss, pointsAwarded = 0 (full wager lost).
  *   - ≥1 correct → win.
  */
@@ -29,21 +30,13 @@ export function evaluateBet(
   const result = scoreA > scoreB ? 'Home Win' : scoreB > scoreA ? 'Away Win' : 'Draw';
   const total  = scoreA + scoreB;
 
-  let answered = 0;
-  let correct  = 0;
+  let correct = 0;
 
-  if (preds.q1) {
-    answered++;
-    if (preds.q1 === result) correct++;
-  }
+  if (preds.q1 && preds.q1 === result) correct++;
 
-  if (preds.q2 && firstScorer !== null) {
-    answered++;
-    if (preds.q2 === firstScorer) correct++;
-  }
+  if (preds.q2 && firstScorer !== null && preds.q2 === firstScorer) correct++;
 
   if (preds.q3) {
-    answered++;
     const ok =
       (preds.q3 === '0–1 Goals' && total <= 1) ||
       (preds.q3 === '2–3 Goals' && total >= 2 && total <= 3) ||
@@ -52,7 +45,6 @@ export function evaluateBet(
   }
 
   if (preds.q4 && totalCards !== null) {
-    answered++;
     const ok =
       (preds.q4 === '0–2 Cards' && totalCards <= 2) ||
       (preds.q4 === '3–5 Cards' && totalCards >= 3 && totalCards <= 5) ||
@@ -60,11 +52,7 @@ export function evaluateBet(
     if (ok) correct++;
   }
 
-  if (answered === 0) {
-    return { outcome: 'loss', pointsAwarded: 0 };
-  }
-
-  const pts = Math.round(2 * correct * wager / answered);
+  const pts = Math.round(2 * correct * wager / 4);
   return { outcome: correct > 0 ? 'win' : 'loss', pointsAwarded: pts };
 }
 
