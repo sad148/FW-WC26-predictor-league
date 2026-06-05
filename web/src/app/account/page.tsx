@@ -90,14 +90,14 @@ export default function AccountPage() {
           {mode === 'login' ? 'LOGIN' : 'REGISTER'}
         </div>
         <div className="fg">
-          <label className="flabel">Name</label>
+          <label className="flabel">Username</label>
           <input
             className="finput"
             type="text"
-            placeholder="Your display name"
+            placeholder="Your username"
             autoComplete="username"
             value={name}
-            onChange={(e) => setName(e.target.value)}
+            onChange={(e) => setName(e.target.value.replace(/\s/g, ''))}
           />
         </div>
         {mode === 'register' && (
