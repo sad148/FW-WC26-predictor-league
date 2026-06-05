@@ -77,9 +77,7 @@ export default function HomePage() {
       </div>
 
       {/* Key numbers strip */}
-      <div style={{
-        display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: '1.5rem',
-      }}>
+      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: '1.5rem' }}>
         {[
           { n: '100', l: 'Starting Coins' },
           { n: '8',   l: 'Max Wager / Match' },
@@ -101,52 +99,66 @@ export default function HomePage() {
 
         <div className="how-card">
           <div className="how-icon">🪙</div>
-          <div className="how-h">You Start With 100. Don't Blow It All on Day 1.</div>
+          <div className="how-h">You Start With 100 Coins. Guard Them.</div>
           <p className="how-p">
-            Everyone kicks off with 100 coins in the war chest. Think of it as your dignity —
-            once it's gone, it's gone. There's a bailout option but it costs ranking points.
-            Spend wisely, or don't. We'll be watching.
+            Every player kicks off with 100 shiny coins. This is your war chest — not a donation.
+            Spend recklessly and you'll be watching from the sidelines while everyone else thrives.
+            The coins are yours. The bad decisions will be too.
           </p>
         </div>
 
         <div className="how-card">
           <div className="how-icon">⚽</div>
-          <div className="how-h">4 Questions Per Match. No Half-Measures.</div>
+          <div className="how-h">4 Questions Per Match. Zero Excuses.</div>
           <p className="how-p">
-            Every match comes loaded: Result · First Scorer · Goals O/U · Total Cards.
-            Wager up to 8 coins per match, split equally across all 4.
-            Nail them all and you double up. Go 0/4 and watch your coins vanish in real-time. Fun!
+            Every match has 4 questions: Result · First Scorer · Goals O/U · Total Cards.
+            Wager up to 8 coins per match — your bet is split equally across all 4.
+            Bet 4 coins? Each question gets 1, and you stand to win back 8. Bet 8? You could pocket 16.
+            Simple maths. Difficult execution.
           </p>
         </div>
 
         <div className="how-card">
           <div className="how-icon">🔢</div>
-          <div className="how-h">Keep It Even, Genius.</div>
+          <div className="how-h">Use Even Numbers or Face the Consequences.</div>
           <p className="how-p">
-            Your wager divides equally across 4 questions. Bet 4 → 1 coin each.
-            Bet 8 → 2 coins each. Use odd numbers and you're basically
-            arm-wrestling the algorithm. Just use even numbers. We beg you.
+            Your wager splits equally across 4 questions — so stick to even numbers.
+            Bet 4 → 1 coin per question. Bet 8 → 2 coins per question.
+            Go rogue with odd numbers and you're personally responsible for whatever
+            the algorithm does next. Don't say we didn't warn you.
           </p>
         </div>
 
         <div className="how-card">
           <div className="how-icon">⏱️</div>
-          <div className="how-h">Deadlines Are Not Suggestions.</div>
+          <div className="how-h">Deadlines Are Sacred. Full Stop.</div>
           <p className="how-p">
-            Betting closes at kickoff for each individual game. Not 5 minutes after.
-            Not when you "just remembered." At kickoff. We don't care about your timezone,
-            your alarm clock, or your excuses. No exceptions. Ever.
+            Betting is open for all group games right now. Each match locks at kickoff —
+            not a minute after, not "almost kickoff." At kickoff.
+            Your timezone, your alarm, your dog eating your phone — none of it matters.
+            No exceptions. This policy has no appeals process.
+          </p>
+        </div>
+
+        <div className="how-card">
+          <div className="how-icon">🆘</div>
+          <div className="how-h">Broke? There's a Lifeline. It'll Cost You.</div>
+          <p className="how-p">
+            If you somehow burn through all 100 coins — congratulations on that achievement —
+            you can claim 100 fresh coins via the Bailout option on the Matches page.
+            The catch? It docks 10 points from your overall leaderboard score.
+            A lifeline, not a cheat code.
           </p>
         </div>
 
         <div className="how-card">
           <div className="how-icon">🧠</div>
-          <div className="how-h">15 Trivia Questions. Your Brain Is Required.</div>
+          <div className="how-h">15 Trivia Questions. Brain Cells Required.</div>
           <p className="how-p">
             15 predictor-style questions for the group stage are live right now.
-            Lock in your answers by 18th June — every team will have played at least
-            one match by then, so you have zero excuses. Head to Trivia and prove
-            you're not just winging it.
+            Lock in your answers by 18th June — every team will have played at least one
+            match by then, so ignorance is not a valid defence.
+            Point values are shown per question. Head to Trivia. Prove yourself.
           </p>
         </div>
 
@@ -154,29 +166,44 @@ export default function HomePage() {
           <div className="how-icon">📊</div>
           <div className="how-h">Call the Group Standings. Own It.</div>
           <p className="how-p">
-            Think you know how each group ends up? Put it on record in the Brackets section.
-            Pick the final 1st–4th standings for every group before 11th June.
-            Wrong prediction? We'll be sure to remind you. Loudly.
+            Think you know how each group shakes out? Commit to it.
+            Head to the Brackets section and predict every group's final 1st–4th standings
+            before 11th June. Wrong picks will be remembered. Correct ones will be celebrated.
+            By you. Loudly. We're fine with that.
           </p>
         </div>
 
         <div className="how-card">
           <div className="how-icon">🔮</div>
-          <div className="how-h">Knockouts Are Coming. Stay Alert.</div>
+          <div className="how-h">Knockouts Are Coming. Don't Sleep.</div>
           <p className="how-p">
-            Once the group stage wraps up, the knockout bracket opens with fresh slots
-            to fill. Come back, drop your predictions, and pray your dark horse
-            hasn't already been sent home in tears. Every correct pick = 3 pts.
+            Once the group dust settles, the knockout bracket opens with fresh prediction slots.
+            Come back, update your picks, and hope your dark horse hasn't already
+            been eliminated in embarrassing fashion. Every correct knockout pick = 3 pts.
+            Fresh groups, fresh chances, fresh heartbreaks.
           </p>
         </div>
 
         <div className="how-card">
           <div className="how-icon">📡</div>
-          <div className="how-h">We Trust Fotmob. Mostly.</div>
+          <div className="how-h">Fotmob Is the Referee. Accept It.</div>
           <p className="how-p">
             All stats are pulled from Fotmob. If Fotmob doesn't have it,
-            Whoscored steps in as backup. If neither has it — it didn't happen.
-            No disputes. No appeals. No refunds. The data is the data.
+            Whoscored steps in as the backup official. If neither source has it —
+            it simply did not happen. No disputes. No appeals. No alternative facts.
+            The data is the data. Always.
+          </p>
+        </div>
+
+        <div className="how-card">
+          <div className="how-icon">🏆</div>
+          <div className="how-h">How Winners Are Made.</div>
+          <p className="how-p">
+            Your final score = <strong style={{ color: 'var(--gold)' }}>Coins ÷ 10</strong> (converted to points) +{' '}
+            <strong style={{ color: 'var(--gold2)' }}>Trivia pts</strong> +{' '}
+            <strong style={{ color: 'var(--mex2)' }}>Bracket pts</strong>.
+            The player with the most combined points at the final whistle wins —
+            and earns the eternal right to say <em>"I told you so."</em>
           </p>
         </div>
 
@@ -191,16 +218,15 @@ export default function HomePage() {
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         flexWrap: 'wrap', gap: 16,
       }}>
-        <div>
-          <div style={{ fontFamily: 'var(--font-display)', fontSize: 20, color: 'var(--gold)', marginBottom: 4 }}>
-            🏆 Most Points Wins. Simple.
-          </div>
-          <div style={{ fontFamily: 'var(--font-cond)', fontSize: 13, color: 'var(--off)', lineHeight: 1.6 }}>
-            Coins from Wagers + Trivia + Brackets — whoever stacks the most by the final whistle<br />
-            takes the glory and the eternal right to say <em style={{ color: 'var(--gold2)' }}>"I told you so."</em>
-          </div>
+        <div style={{ fontFamily: 'var(--font-cond)', fontSize: 13, color: 'var(--off)', lineHeight: 1.8 }}>
+          <span style={{ display: 'block', fontFamily: 'var(--font-display)', fontSize: 16, color: 'var(--gold)', marginBottom: 4, letterSpacing: .5 }}>
+            RULES AND POINTS TO NOTE
+          </span>
+          These rules are final. Ignorance of the rules is not a valid excuse.<br />
+          Any stats dispute will be resolved using Fotmob → Whoscored in that order.<br />
+          The commissioner's decision is final. Yes, that means us.
         </div>
-        <div style={{ fontFamily: 'var(--font-display)', fontSize: 28, letterSpacing: 1 }}>
+        <div style={{ fontFamily: 'var(--font-display)', fontSize: 28, letterSpacing: 1, whiteSpace: 'nowrap' }}>
           <span style={{ color: 'var(--can2)' }}>Good </span>
           <span style={{ color: 'var(--mex2)' }}>Luck, </span>
           <span style={{ color: 'var(--gold)' }}>Have Fun!</span>
