@@ -135,6 +135,8 @@ body::before{
 .popt:disabled{opacity:.35;cursor:default;}
 .mc-wager{border-top:1px solid var(--border);padding:10px 14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
 .wlabel{font-family:var(--font-cond);font-size:13px;color:var(--off);}
+select{background:#1e1e2e;border:1px solid var(--border);color:var(--white);}
+select option{background:#1e1e2e;color:var(--white);}
 .winput{background:rgba(255,255,255,0.06);border:1px solid var(--border);color:var(--white);font-family:'Barlow Condensed',monospace;font-size:14px;font-weight:700;padding:5px 10px;border-radius:6px;width:64px;text-align:center;}
 .winput:focus{outline:none;border-color:var(--gold);}
 .wmax{font-family:var(--font-cond);font-size:12px;color:var(--off);}

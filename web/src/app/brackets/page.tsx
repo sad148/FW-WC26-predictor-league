@@ -128,7 +128,7 @@ export default function BracketsPage() {
   if (isLoading) return null;
 
   const selStyle = {
-    background: 'rgba(255,255,255,.07)', border: '1px solid var(--border)',
+    background: '#1e1e2e', border: '1px solid var(--border)',
     color: 'var(--white)', fontFamily: 'var(--font-cond)', fontSize: 13,
     padding: '5px 8px', borderRadius: 5, cursor: 'pointer', width: '100%',
   };
