@@ -721,7 +721,7 @@ export default function AdminPage() {
             Zone.
           </p>
         ) : (
-          <div style={{ display: "grid", gap: 8 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(420px, 1fr))", gap: 8 }}>
             {matches.map((m) => {
               const d = draftFor(m);
               const cellInput = {
@@ -787,13 +787,12 @@ export default function AdminPage() {
                   <div
                     style={{
                       display: "grid",
-                      gridTemplateColumns:
-                        "repeat(auto-fit, minmax(200px, 1fr))",
+                      gridTemplateColumns: "1fr 1fr",
                       gap: 10,
                       marginBottom: 10,
                     }}
                   >
-                    <div>
+                    <div style={{ minWidth: 0 }}>
                       <div style={subLabel}>BETTING OPENS (your local tz)</div>
                       <input
                         type="datetime-local"
@@ -804,12 +803,13 @@ export default function AdminPage() {
                         style={{
                           ...cellInput,
                           width: "100%",
+                          boxSizing: "border-box",
                           marginTop: 3,
                           textAlign: "left",
                         }}
                       />
                     </div>
-                    <div>
+                    <div style={{ minWidth: 0 }}>
                       <div style={subLabel}>BETTING CLOSES (your local tz)</div>
                       <input
                         type="datetime-local"
@@ -820,6 +820,7 @@ export default function AdminPage() {
                         style={{
                           ...cellInput,
                           width: "100%",
+                          boxSizing: "border-box",
                           marginTop: 3,
                           textAlign: "left",
                         }}
@@ -1032,7 +1033,7 @@ export default function AdminPage() {
           Players can answer a phase's questions only while now is inside its
           window. Enter times in your local timezone; stored as UTC.
         </p>
-        <div style={{ display: "grid", gap: 8 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: 8 }}>
           {[1, 2].map((phase) => {
             const d = pwDraftFor(phase);
             const subLabel = {
@@ -1371,7 +1372,7 @@ export default function AdminPage() {
           Phase 1 (group standings) locks at opening kickoff. Phase 2 (knockout)
           locks before first knockout match.
         </p>
-        <div style={{ display: "grid", gap: 8 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: 8 }}>
           {[1, 2].map((phase) => {
             const d = bpwDraftFor(phase);
             const subLabel = {
@@ -1576,7 +1577,7 @@ export default function AdminPage() {
             No groups imported yet.
           </p>
         ) : (
-          <div style={{ display: "grid", gap: 8 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 8 }}>
             {groupEntries.map((g) => {
               const teams = g.teams.split("|");
               const d = groupSettleDraftFor(g);
@@ -1707,7 +1708,7 @@ export default function AdminPage() {
             No knockout entries yet. Add one below.
           </p>
         ) : (
-          <div style={{ display: "grid", gap: 8 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 8 }}>
             {bracketEntries.map((e) => {
               const d = beDraftFor(e);
               return (
