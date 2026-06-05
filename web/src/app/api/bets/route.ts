@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { and, asc, eq } from 'drizzle-orm';
+import { and, asc, eq, sql as rawSql } from 'drizzle-orm';
 import { db } from '@/db/client';
 import { bets, fixtures } from '@/db/schema';
 import { requireUser } from '@/lib/session';
@@ -55,6 +55,17 @@ export async function POST(req: NextRequest) {
       .from(bets)
       .where(and(eq(bets.userId, session.userId!), eq(bets.matchId, matchId)));
     if (existing.length > 0) return fail('You already placed a bet on this match.', 409);
+
+    // Wallet check: cannot wager more coins than currently available.
+    const walletResult = await db.execute<{ wallet: number }>(rawSql`
+      SELECT (
+        100
+        + COALESCE((SELECT SUM(-wager + CASE WHEN outcome != 'pending' THEN points_awarded ELSE 0 END) FROM bets WHERE user_id = ${session.userId}), 0)
+        + COALESCE((SELECT SUM(coins_awarded) FROM bailouts WHERE user_id = ${session.userId}), 0)
+      )::int AS wallet
+    `);
+    const wallet = walletResult.rows[0]?.wallet ?? 0;
+    if (wager > wallet) return fail(`Not enough coins. You have ${wallet} coins but tried to wager ${wager}.`, 409);
 
     const [row] = await db
       .insert(bets)
