@@ -86,9 +86,9 @@ export default function MyBetsPage() {
               .map(([k, v]) => <span key={k}>{QLABEL[k]}: <strong>{v}</strong></span>);
             const outClass = b.outcome === 'win' ? 'out-win' : b.outcome === 'loss' ? 'out-lose' : 'out-pend';
             const outText  =
-              b.outcome === 'win'  ? `+${b.wager} pts ✓` :
-              b.outcome === 'loss' ? `−${b.wager} pts ✗` :
-                                     `${b.wager} pts (pending)`;
+              b.outcome === 'win'  ? `+${b.wager} coins ✓` :
+              b.outcome === 'loss' ? `−${b.wager} coins ✗` :
+                                     `${b.wager} coins (pending)`;
             return (
               <div className="bet-card" key={b.id}>
                 <div>
@@ -102,7 +102,7 @@ export default function MyBetsPage() {
                   </div>
                 </div>
                 <div className="bet-right">
-                  <div className="bet-amt">{b.wager} pts wagered</div>
+                  <div className="bet-amt">{b.wager} coins wagered</div>
                   <div className={`bet-out ${outClass}`}>{outText}</div>
                 </div>
               </div>

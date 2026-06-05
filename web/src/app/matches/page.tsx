@@ -111,7 +111,7 @@ export default function MatchesPage() {
         q1: draft.q1, q2: draft.q2, q3: draft.q3, q4: draft.q4,
         wager: draft.wager,
       });
-      toast('Bet placed! 🎯', `${draft.wager} pts wagered.`);
+      toast('Bet placed! 🎯', `${draft.wager} coins wagered.`);
       setDrafts(d => { const c = { ...d }; delete c[matchId]; return c; });
       await loadBets();
       await refresh();   // updates wallet chip in header
@@ -126,7 +126,7 @@ export default function MatchesPage() {
     <section>
       <div className="sh">
         <div className="sh-title">MATCHES</div>
-        <div className="sh-sub">Lock predictions before kickoff · 8 pts max per match</div>
+        <div className="sh-sub">Lock predictions before kickoff · 8 coins max per match</div>
       </div>
 
       <div className="phase-tabs">
@@ -269,7 +269,7 @@ export default function MatchesPage() {
                           setDraft(m.id, { wager: v });
                         }}
                       />
-                      <span className="wmax">pts / 8 max</span>
+                      <span className="wmax">coins / 8 max</span>
                       {existing
                         ? <span className="saved-badge">✓ Submitted</span>
                         : <button

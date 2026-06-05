@@ -63,7 +63,7 @@ export function Header() {
         {/* Wallet chip — players only */}
         {user && !isAdmin && (
           <div className="wallet-chip">
-            🏅 <b>{wallet ?? "—"}</b> pts
+            🪙 <b>{wallet ?? "—"}</b> coins
           </div>
         )}
         {/* Admin chip — click to log out of admin session */}
