@@ -5,7 +5,7 @@ import { groupEntries, groupPicks } from '@/db/schema';
 import { requireAdmin } from '@/lib/session';
 import { ok, fail, handleError } from '@/lib/responses';
 
-const PTS_PER_CORRECT_POSITION = 1;
+const PTS_PER_CORRECT_POSITION = 3;
 
 /**
  * PATCH /api/group-entries/[id] — admin settles a group with the correct final ranking.
