@@ -162,18 +162,18 @@ export default function MatchesPage() {
           Admin accounts can't place bets. Log out of admin and register a player account to play.
         </div>
       )}
-      {bailoutEligible && (
+      {user && !isAdmin && (
         <div style={{
           background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 10,
           padding: '12px 16px', marginBottom: '1.25rem', fontSize: 13,
           display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
         }}>
           <span style={{ color: 'var(--off)' }}>
-            You're out of coins. Trade <strong style={{ color: 'var(--gold)' }}>10 pts</strong> from your trivia/bracket score for <strong style={{ color: 'var(--gold)' }}>100 coins</strong>.
+            Trade <strong style={{ color: 'var(--gold)' }}>10 pts</strong> from your trivia/bracket score for <strong style={{ color: 'var(--gold)' }}>100 coins</strong>.
           </span>
           <button
             className="wsubmit"
-            disabled={bailing}
+            disabled={!bailoutEligible || bailing}
             onClick={doBailout}
           >
             {bailing ? 'Processing…' : 'Bailout'}
