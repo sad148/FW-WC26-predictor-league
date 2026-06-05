@@ -29,13 +29,14 @@ interface Draft {
 }
 
 export default function MatchesPage() {
-  const { user, isAdmin, refresh } = useAuth();
+  const { user, isAdmin, wallet, bailoutEligible, refresh } = useAuth();
   const { toast }          = useToast();
   const [matches, setMatches] = useState<Match[]>([]);
   const [bets, setBets]       = useState<Bet[]>([]);
   const [filter, setFilter]   = useState<Filter>('all');
-  const [drafts, setDrafts]   = useState<Record<number, Draft>>({});
-  const [submitting, setSub]  = useState<number | null>(null);
+  const [drafts, setDrafts]     = useState<Record<number, Draft>>({});
+  const [submitting, setSub]    = useState<number | null>(null);
+  const [bailing, setBailing]   = useState(false);
 
   const loadFixtures = useCallback(async () => {
     try {
@@ -80,6 +81,19 @@ export default function MatchesPage() {
       const base: Draft = d[matchId] ?? { wager: 2 };
       return { ...d, [matchId]: { ...base, ...patch } };
     });
+  }
+
+  async function doBailout() {
+    setBailing(true);
+    try {
+      await api.bailout();
+      toast('Bailout!', 'You received 100 coins. −10 pts deducted from your score.');
+      await refresh();
+    } catch (e) {
+      toast('Error', (e as Error).message);
+    } finally {
+      setBailing(false);
+    }
   }
 
   async function submit(matchId: number) {
@@ -146,6 +160,24 @@ export default function MatchesPage() {
           padding: '12px 16px', marginBottom: '1.25rem', fontSize: 13, color: 'var(--can2)'
         }}>
           Admin accounts can't place bets. Log out of admin and register a player account to play.
+        </div>
+      )}
+      {bailoutEligible && (
+        <div style={{
+          background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 10,
+          padding: '12px 16px', marginBottom: '1.25rem', fontSize: 13,
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
+        }}>
+          <span style={{ color: 'var(--off)' }}>
+            You're out of coins. Trade <strong style={{ color: 'var(--gold)' }}>10 pts</strong> from your trivia/bracket score for <strong style={{ color: 'var(--gold)' }}>100 coins</strong>.
+          </span>
+          <button
+            className="wsubmit"
+            disabled={bailing}
+            onClick={doBailout}
+          >
+            {bailing ? 'Processing…' : 'Bailout'}
+          </button>
         </div>
       )}
 

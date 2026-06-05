@@ -132,6 +132,15 @@ export const bracketPhases = pgTable('bracket_phases', {
   endTime:   timestamp('end_time',   { withTimezone: true }),
 });
 
+// bailouts — one row per bailout. Awards 100 coins; deducts 10 pts from trivia+bracket total.
+export const bailouts = pgTable('bailouts', {
+  id:             serial('id').primaryKey(),
+  userId:         integer('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  coinsAwarded:   integer('coins_awarded').notNull().default(100),
+  pointsDeducted: integer('points_deducted').notNull().default(10),
+  createdAt:      timestamp('created_at').defaultNow().notNull(),
+});
+
 // bracket_picks — player's prediction per bracket entry. One per (user, entry).
 export const bracketPicks = pgTable('bracket_picks', {
   id:            serial('id').primaryKey(),

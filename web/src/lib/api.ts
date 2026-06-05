@@ -82,6 +82,7 @@ export interface LeaderboardRow {
   matchPts: number;
   triviaPts: number;
   bracketPts: number;
+  bailoutPenalty: number;
   totalPts: number;
 }
 
@@ -335,6 +336,9 @@ export const api = {
       method: "POST",
       body: JSON.stringify(b),
     }),
+
+  // Bailout
+  bailout: () => request<{ bailout: object }>('/api/bailouts', { method: 'POST' }),
 
   // Admin
   adminLogin: (b: { password: string }) =>

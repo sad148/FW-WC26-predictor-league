@@ -60,6 +60,7 @@ export default function LeaderboardPage() {
               <th>Coins</th>
               <th>Trivia</th>
               <th>Bracket</th>
+              <th>Penalty</th>
               <th>Total Pts</th>
             </tr>
           </thead>
@@ -115,6 +116,15 @@ export default function LeaderboardPage() {
                       }}
                     >
                       {p.bracketPts ?? 0}
+                    </td>
+                    <td
+                      style={{
+                        fontFamily: "var(--font-cond)",
+                        fontSize: 13,
+                        color: p.bailoutPenalty > 0 ? "var(--can2)" : "var(--off)",
+                      }}
+                    >
+                      {p.bailoutPenalty > 0 ? `−${p.bailoutPenalty}` : "—"}
                     </td>
                     <td className="pts-cell">{p.totalPts ?? p.wallet}</td>
                   </tr>
