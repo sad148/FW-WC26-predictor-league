@@ -57,7 +57,7 @@ export default function LeaderboardPage() {
             <tr>
               <th style={{ width: 42 }}>#</th>
               <th>Player</th>
-              <th>Wallet</th>
+              <th>Coins</th>
               <th>Trivia</th>
               <th>Bracket</th>
               <th>Total Pts</th>
@@ -97,7 +97,7 @@ export default function LeaderboardPage() {
                         {isMe && <span className="me-tag">YOU</span>}
                       </div>
                     </td>
-                    <td className="wallet-cell">{p.wallet} pts</td>
+                    <td className="wallet-cell">{p.wallet}</td>
                     <td
                       style={{
                         fontFamily: "var(--font-cond)",

@@ -82,7 +82,6 @@ export interface LeaderboardRow {
   matchPts: number;
   triviaPts: number;
   bracketPts: number;
-  groupPts: number;
   totalPts: number;
 }
 
