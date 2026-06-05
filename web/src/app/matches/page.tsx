@@ -35,6 +35,7 @@ export default function MatchesPage() {
   const [bets, setBets]       = useState<Bet[]>([]);
   const [filter, setFilter]   = useState<Filter>('all');
   const [drafts, setDrafts]     = useState<Record<number, Draft>>({});
+  const [wagerRaw, setWagerRaw] = useState<Record<number, string>>({});
   const [submitting, setSub]    = useState<number | null>(null);
   const [bailing, setBailing]   = useState(false);
 
@@ -261,11 +262,22 @@ export default function MatchesPage() {
                       <span className="wlabel">Wager</span>
                       <input
                         className="winput"
-                        type="number" min={1} max={8}
-                        value={existing?.wager ?? draft.wager}
+                        type="text"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        value={existing ? String(existing.wager) : (wagerRaw[m.id] ?? String(draft.wager))}
                         disabled={!canBet}
                         onChange={(e) => {
-                          const v = Math.min(8, Math.max(1, parseInt(e.target.value) || 1));
+                          const raw = e.target.value.replace(/[^0-9]/g, '');
+                          setWagerRaw(r => ({ ...r, [m.id]: raw }));
+                          if (raw !== '') {
+                            const v = Math.min(8, Math.max(1, parseInt(raw)));
+                            setDraft(m.id, { wager: v });
+                          }
+                        }}
+                        onBlur={() => {
+                          const v = draft.wager || 2;
+                          setWagerRaw(r => ({ ...r, [m.id]: String(v) }));
                           setDraft(m.id, { wager: v });
                         }}
                       />
