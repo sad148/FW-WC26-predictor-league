@@ -168,7 +168,7 @@ export default function BracketsPage() {
             const draft    = groupDraft(g.id, teams);
             const existing = groupPickById.get(g.id);
             const settled  = g.status === 'settled';
-            const canEdit  = !!user && !isAdmin && phase1Open && !settled;
+            const canEdit  = !!user && !isAdmin && phase1Open && !settled && !existing;
             const badge    = settled
               ? { cls: 'st-done', text: '✓ SETTLED' }
               : { cls: WINDOW_CLS[phase1State], text: WINDOW_STATE_LABEL[phase1State] };
@@ -219,13 +219,13 @@ export default function BracketsPage() {
                   ) : (
                     <div style={{ fontFamily: 'var(--font-cond)', fontSize: 13, color: 'var(--off)' }}>No pick yet</div>
                   )}
-                  {!settled && (
+                  {!settled && !existing && (
                     <button className="wsubmit" disabled={!canEdit || savingGid === g.id} onClick={() => submitGroupPick(g)}>
                       {savingGid === g.id ? 'Saving…'
                         : phase1State === 'scheduled' ? 'Opens later'
                         : phase1State === 'closed'    ? 'Closed'
                         : phase1State === 'unset'     ? 'Not open'
-                        : existing ? 'Update' : 'Submit'}
+                        : 'Submit'}
                     </button>
                   )}
                 </div>
@@ -262,7 +262,7 @@ export default function BracketsPage() {
             const existing  = pickByEntry.get(entry.id);
             const draft     = drafts[entry.id] ?? existing?.pick ?? '';
             const isSettled = entry.status === 'settled';
-            const canEdit   = !!user && !isAdmin && phase2Open && !isSettled;
+            const canEdit   = !!user && !isAdmin && phase2Open && !isSettled && !existing;
             const badge     = isSettled
               ? { cls: 'st-done', text: '✓ SETTLED' }
               : { cls: WINDOW_CLS[phase2State], text: WINDOW_STATE_LABEL[phase2State] };
@@ -297,13 +297,13 @@ export default function BracketsPage() {
                         {existing.outcome === 'loss' && <span style={{ color: '#e74c3c', marginLeft: 8 }}>no points ✗</span>}
                       </div>
                     : <div style={{ fontFamily: 'var(--font-cond)', fontSize: 13, color: 'var(--off)' }}>No pick yet</div>}
-                  {!isSettled && (
+                  {!isSettled && !existing && (
                     <button className="wsubmit" disabled={!canEdit || savingId === entry.id} onClick={() => submitKnockoutPick(entry)}>
                       {savingId === entry.id ? 'Saving…'
                         : phase2State === 'scheduled' ? 'Opens later'
                         : phase2State === 'closed'    ? 'Closed'
                         : phase2State === 'unset'     ? 'Not open'
-                        : existing ? 'Update' : 'Submit'}
+                        : 'Submit'}
                     </button>
                   )}
                 </div>
