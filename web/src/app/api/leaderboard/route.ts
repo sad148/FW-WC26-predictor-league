@@ -8,7 +8,7 @@ import { ok, handleError } from '@/lib/responses';
  *   matchPts   = sum(win pointsAwarded)
  *   triviaPts  = sum(question_answers.points_awarded)
  *   bracketPts = sum(bracket_picks + group_picks pointsAwarded)  (3 pts per correct pick)
- *   totalPts   = wallet + triviaPts + bracketPts
+ *   totalPts   = floor(wallet / 10) + triviaPts + bracketPts  (10 coins = 1 pt)
  * Ranked by totalPts desc, then wallet desc.
  */
 export async function GET() {
@@ -31,7 +31,7 @@ export async function GET() {
         m.match_pts     AS "matchPts",
         t.trivia_pts    AS "triviaPts",
         (b.bracket_pts + g.group_pts)::int AS "bracketPts",
-        (m.wallet + t.trivia_pts + b.bracket_pts + g.group_pts)::int AS "totalPts"
+        (m.wallet / 10 + t.trivia_pts + b.bracket_pts + g.group_pts)::int AS "totalPts"
       FROM users u
       LEFT JOIN LATERAL (
         SELECT
