@@ -42,9 +42,18 @@ export interface SessionUser {
   playerId: string;
   name: string;
 }
+
+export interface LeagueSummary {
+  id: number;
+  name: string;
+  code: string;
+}
+
 export interface MeResponse {
-  user: SessionUser | null;
-  isAdmin: boolean;
+  user:          SessionUser | null;
+  isAdmin:       boolean;
+  activeLeagueId: number | null;
+  leagues:       LeagueSummary[];
 }
 
 export interface Match {
@@ -172,7 +181,7 @@ export const api = {
       body: JSON.stringify(b),
     }),
   login: (b: { name: string; password: string }) =>
-    request<{ playerId: string; name: string }>("/api/auth/login", {
+    request<{ playerId: string; name: string; leagues: LeagueSummary[] }>("/api/auth/login", {
       method: "POST",
       body: JSON.stringify(b),
     }),
@@ -217,8 +226,10 @@ export const api = {
     }),
 
   // Leaderboard
-  leaderboard: () =>
-    request<{ leaderboard: LeaderboardRow[] }>("/api/leaderboard"),
+  leaderboard: (leagueId?: number) =>
+    request<{ leaderboard: LeaderboardRow[] }>(
+      leagueId ? `/api/leaderboard?leagueId=${leagueId}` : '/api/leaderboard'
+    ),
 
   // Trivia (Subsystem B)
   questions: () => request<{ questions: Question[] }>("/api/questions"),
@@ -336,11 +347,23 @@ export const api = {
       method: "POST",
       body: JSON.stringify(b),
     }),
+  joinLeague: (b: { leagueCode: string }) =>
+    request<{ league: LeagueSummary }>("/api/league/join", {
+      method: "POST",
+      body: JSON.stringify(b),
+    }),
+  switchLeague: (b: { leagueId: number }) =>
+    request<{ activeLeagueId: number }>("/api/league/switch", {
+      method: "POST",
+      body: JSON.stringify(b),
+    }),
 
   // Bailout
   bailout: () => request<{ bailout: object }>('/api/bailouts', { method: 'POST' }),
 
   // Admin
+  adminLeagues: () =>
+    request<{ leagues: (LeagueSummary & { createdAt: string; memberCount: number })[] }>('/api/admin/leagues'),
   adminLogin: (b: { password: string }) =>
     request<{}>("/api/admin/login", {
       method: "POST",
