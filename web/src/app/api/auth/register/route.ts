@@ -1,14 +1,14 @@
 import { NextRequest } from 'next/server';
-import { desc, sql } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { db } from '@/db/client';
-import { users, leagues } from '@/db/schema';
+import { users, leagues, leagueMembers } from '@/db/schema';
 import { hashPassword } from '@/lib/auth';
 import { getSession } from '@/lib/session';
 import { ok, fail, handleError } from '@/lib/responses';
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
+    const body     = await req.json();
     const name     = String(body.name || '').trim();
     const password = String(body.password || '');
     const code     = String(body.leagueCode || '').trim().toUpperCase();
@@ -17,9 +17,8 @@ export async function POST(req: NextRequest) {
     if (password.length < 4)  return fail('Password must be at least 4 characters.');
     if (!code)                return fail('League code is required.');
 
-    const [league] = await db.select().from(leagues).orderBy(desc(leagues.createdAt)).limit(1);
-    if (!league)                            return fail('No league exists yet. Ask the admin to create one.');
-    if (league.code.toUpperCase() !== code) return fail('Invalid league code.');
+    const [league] = await db.select().from(leagues).where(eq(leagues.code, code));
+    if (!league) return fail('Invalid league code.');
 
     const existing = await db
       .select()
@@ -33,10 +32,13 @@ export async function POST(req: NextRequest) {
       .values({ name, passwordHash })
       .returning();
 
+    await db.insert(leagueMembers).values({ userId: user.id, leagueId: league.id });
+
     const session = await getSession();
-    session.userId  = user.id;
-    session.name    = user.name;
-    session.isAdmin = false;
+    session.userId         = user.id;
+    session.name           = user.name;
+    session.isAdmin        = false;
+    session.activeLeagueId = league.id;
     await session.save();
 
     return ok({ playerId: String(user.id), name: user.name }, 201);

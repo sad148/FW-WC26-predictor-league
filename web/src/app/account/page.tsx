@@ -5,13 +5,15 @@ import { api } from '@/lib/api';
 import { useAuth, useToast } from '../providers';
 
 export default function AccountPage() {
-  const { user, refresh } = useAuth();
-  const { toast }         = useToast();
-  const [mode, setMode]   = useState<'login' | 'register'>('login');
-  const [name, setName]   = useState('');
-  const [pwd, setPwd]     = useState('');
-  const [code, setCode]   = useState('');
-  const [busy, setBusy]   = useState(false);
+  const { user, leagues, refresh } = useAuth();
+  const { toast }                  = useToast();
+  const [mode, setMode]            = useState<'login' | 'register'>('login');
+  const [name, setName]            = useState('');
+  const [pwd, setPwd]              = useState('');
+  const [code, setCode]            = useState('');
+  const [busy, setBusy]            = useState(false);
+  const [joinCode, setJoinCode]    = useState('');
+  const [joinBusy, setJoinBusy]    = useState(false);
 
   async function submit() {
     if (!name || !pwd) return toast('Missing fields', 'Enter name and password.');
@@ -44,6 +46,21 @@ export default function AccountPage() {
     }
   }
 
+  async function handleJoinLeague() {
+    if (!joinCode.trim()) return toast('Missing code', 'Enter a league code.');
+    setJoinBusy(true);
+    try {
+      const res = await api.joinLeague({ leagueCode: joinCode.toUpperCase() });
+      toast('✓ Joined', `You've joined ${res.league.name}!`);
+      setJoinCode('');
+      await refresh();
+    } catch (e) {
+      toast('Error', (e as Error).message);
+    } finally {
+      setJoinBusy(false);
+    }
+  }
+
   if (user) {
     return (
       <section>
@@ -51,15 +68,49 @@ export default function AccountPage() {
           <div className="sh-title">ACCOUNT</div>
           <div className="sh-sub">You are signed in.</div>
         </div>
+
         <div className="lform">
           <div className="lform-title" style={{ color: 'var(--mex2)' }}>SIGNED IN</div>
           <div style={{ fontSize: 18, fontFamily: 'var(--font-cond)', marginBottom: '.6rem' }}>
             Welcome, <strong style={{ color: 'var(--gold)' }}>{user.name}</strong>
           </div>
-          <div style={{ color: 'var(--off)', fontSize: 13, lineHeight: 1.6, marginBottom: '1.25rem' }}>
-            Head to Matches to place bets, or My Bets to see your history.
+          {leagues.length > 0 && (
+            <div style={{ color: 'var(--off)', fontSize: 13, marginBottom: '1rem' }}>
+              Your leagues: {leagues.map(l => l.name).join(', ')}
+            </div>
+          )}
+          <button className="btn-outline" style={{ width: '100%' }} onClick={handleLogout}>
+            Log out
+          </button>
+        </div>
+
+        {/* Join another league */}
+        <div className="lform" style={{ marginTop: '1.5rem' }}>
+          <div className="lform-title" style={{ color: 'var(--gold)', fontSize: 14 }}>
+            JOIN ANOTHER LEAGUE
           </div>
-          <button className="btn-outline" style={{ width: '100%' }} onClick={handleLogout}>Log out</button>
+          <div style={{ color: 'var(--off)', fontSize: 12, marginBottom: '1rem' }}>
+            Have a code for a different league? Join it and your bets will be tracked separately.
+          </div>
+          <div className="fg">
+            <label className="flabel">League Code</label>
+            <input
+              className="finput code-input"
+              type="text"
+              placeholder="WC26-XXXX"
+              value={joinCode}
+              onChange={(e) => setJoinCode(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') handleJoinLeague(); }}
+            />
+          </div>
+          <button
+            className="btn-gold"
+            style={{ width: '100%', marginTop: 4 }}
+            disabled={joinBusy}
+            onClick={handleJoinLeague}
+          >
+            {joinBusy ? 'Joining…' : 'Join League →'}
+          </button>
         </div>
       </section>
     );

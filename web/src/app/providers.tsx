@@ -1,7 +1,7 @@
 'use client';
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
-import { api, type SessionUser } from '@/lib/api';
+import { api, type SessionUser, type LeagueSummary } from '@/lib/api';
 
 // ── AUTH ─────────────────────────────────────────────────────────────
 
@@ -9,10 +9,13 @@ interface AuthState {
   user:             SessionUser | null;
   isAdmin:          boolean;
   isLoading:        boolean;
-  wallet:           number | null;   // null = no player session or not loaded yet
-  bailoutEligible:  boolean;         // true when wallet=0 and trivia+bracket pts >= 10
+  wallet:           number | null;
+  bailoutEligible:  boolean;
+  activeLeagueId:   number | null;
+  leagues:          LeagueSummary[];
   refresh:          () => Promise<void>;
   setSession:       (user: SessionUser | null, isAdmin?: boolean) => void;
+  switchLeague:     (leagueId: number) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthState | null>(null);
@@ -37,23 +40,73 @@ export function useToast() {
   return ctx;
 }
 
+// ── LEAGUE PICKER MODAL ──────────────────────────────────────────────
+
+function LeaguePicker({
+  leagues,
+  onPick,
+}: {
+  leagues: LeagueSummary[];
+  onPick: (id: number) => void;
+}) {
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, zIndex: 1000,
+      background: 'rgba(0,0,0,0.85)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      padding: '1rem',
+    }}>
+      <div style={{
+        background: 'var(--card)', border: '1px solid var(--border)',
+        borderRadius: 14, padding: '2rem', maxWidth: 420, width: '100%',
+        textAlign: 'center',
+      }}>
+        <div style={{
+          fontFamily: 'var(--font-display)', fontSize: 22,
+          color: 'var(--gold)', letterSpacing: 1, marginBottom: '.5rem',
+        }}>
+          SELECT LEAGUE
+        </div>
+        <div style={{ color: 'var(--off)', fontSize: 13, marginBottom: '1.5rem' }}>
+          You belong to multiple leagues. Pick which one to play in.
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {leagues.map(l => (
+            <button
+              key={l.id}
+              className="btn-gold"
+              style={{ width: '100%' }}
+              onClick={() => onPick(l.id)}
+            >
+              {l.name}
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── PROVIDERS WRAPPER ────────────────────────────────────────────────
 
 export function Providers({ children }: { children: React.ReactNode }) {
-  // Auth state
-  const [user, setUser]                   = useState<SessionUser | null>(null);
-  const [isAdmin, setIsAdmin]             = useState(false);
-  const [wallet, setWallet]               = useState<number | null>(null);
+  const [user, setUser]                       = useState<SessionUser | null>(null);
+  const [isAdmin, setIsAdmin]                 = useState(false);
+  const [wallet, setWallet]                   = useState<number | null>(null);
   const [bailoutEligible, setBailoutEligible] = useState(false);
-  const [isLoading, setLoad]              = useState(true);
+  const [isLoading, setLoad]                  = useState(true);
+  const [activeLeagueId, setActiveLeagueId]   = useState<number | null>(null);
+  const [leagues, setLeagues]                 = useState<LeagueSummary[]>([]);
 
   const refresh = useCallback(async () => {
     try {
       const meRes = await api.me();
       setUser(meRes.user);
       setIsAdmin(meRes.isAdmin);
-      // Only fetch the leaderboard wallet for actual player sessions.
-      if (meRes.user && !meRes.isAdmin) {
+      setActiveLeagueId(meRes.activeLeagueId);
+      setLeagues(meRes.leagues);
+
+      if (meRes.user && !meRes.isAdmin && meRes.activeLeagueId) {
         try {
           const lb = await api.leaderboard();
           const mine = lb.leaderboard.find(p => p.playerId === meRes.user!.playerId);
@@ -72,12 +125,17 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
   useEffect(() => { refresh(); }, [refresh]);
 
+  const switchLeague = useCallback(async (leagueId: number) => {
+    await api.switchLeague({ leagueId });
+    window.location.reload();
+  }, []);
+
   const setSession = useCallback((u: SessionUser | null, admin?: boolean) => {
     setUser(u);
     if (admin !== undefined) setIsAdmin(admin);
   }, []);
 
-  // Toast state — show one at a time, auto-dismiss after 3.2s.
+  // Toast state
   const [toastData, setToastData] = useState<{ title: string; msg: string } | null>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -87,10 +145,16 @@ export function Providers({ children }: { children: React.ReactNode }) {
     timerRef.current = setTimeout(() => setToastData(null), 3200);
   }, []);
 
+  // Show league picker when logged in but no active league (multiple leagues)
+  const needsLeaguePick = !isLoading && !!user && !isAdmin && !activeLeagueId && leagues.length > 1;
+
   return (
-    <AuthContext.Provider value={{ user, isAdmin, isLoading, wallet, bailoutEligible, refresh, setSession }}>
+    <AuthContext.Provider value={{ user, isAdmin, isLoading, wallet, bailoutEligible, activeLeagueId, leagues, refresh, setSession, switchLeague }}>
       <ToastContext.Provider value={{ toast }}>
         {children}
+        {needsLeaguePick && (
+          <LeaguePicker leagues={leagues} onPick={switchLeague} />
+        )}
         <div className={`toast${toastData ? ' show' : ''}`}>
           <div className="toast-t">{toastData?.title}</div>
           <div className="toast-m">{toastData?.msg}</div>

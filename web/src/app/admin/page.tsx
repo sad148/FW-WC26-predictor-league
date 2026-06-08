@@ -6,11 +6,13 @@ import {
   type BracketEntry,
   type BracketPhase,
   type GroupEntry,
-  type League,
+  type LeagueSummary,
   type Match,
   type PhaseWindow,
   type Question,
 } from "@/lib/api";
+
+type AdminLeague = LeagueSummary & { createdAt: string; memberCount: number };
 import { localInputToUtc, utcToLocalInput } from "@/lib/time";
 import { useAuth, useToast } from "../providers";
 
@@ -90,7 +92,7 @@ interface GroupSettleDraft {
 export default function AdminPage() {
   const { isAdmin, isLoading, refresh } = useAuth();
   const { toast } = useToast();
-  const [league, setLeague] = useState<League | null>(null);
+  const [allLeagues, setAllLeagues]   = useState<AdminLeague[]>([]);
   const [matches, setMatches] = useState<Match[]>([]);
   const [drafts, setDrafts] = useState<Record<number, ResultDraft>>({});
   const [savingId, setSavingId] = useState<number | null>(null);
@@ -181,17 +183,23 @@ export default function AdminPage() {
     }
   }, [toast]);
 
+  const loadLeagues = useCallback(async () => {
+    try {
+      const r = await api.adminLeagues();
+      setAllLeagues(r.leagues);
+    } catch (e) {
+      toast("Error", (e as Error).message);
+    }
+  }, [toast]);
+
   useEffect(() => {
     if (!isAdmin) return;
-    api
-      .league()
-      .then((r) => setLeague(r.league))
-      .catch(() => {});
+    loadLeagues();
     loadFixtures();
     loadQuestions();
     loadBrackets();
     loadGroups();
-  }, [isAdmin, loadFixtures, loadQuestions, loadBrackets, loadGroups]);
+  }, [isAdmin, loadLeagues, loadFixtures, loadQuestions, loadBrackets, loadGroups]);
 
   function draftFor(m: Match): ResultDraft {
     return (
@@ -544,9 +552,9 @@ export default function AdminPage() {
     if (!name.trim()) return toast("Missing fields", "Enter a league name.");
     try {
       const res = await api.createLeague({ name: name.trim() });
-      setLeague(res.league);
       setName("");
       toast("✓ League created", `Code: ${res.league.code}`);
+      await loadLeagues();
     } catch (e) {
       toast("Error", (e as Error).message);
     }
@@ -658,38 +666,49 @@ export default function AdminPage() {
 
       <div className="lform" style={{ marginBottom: "1.5rem" }}>
         <div className="lform-title" style={{ color: "var(--gold)" }}>
-          LEAGUE
+          LEAGUES
         </div>
-        <div
-          style={{
-            background: "var(--card)",
-            border: "1px solid var(--border)",
-            borderRadius: 8,
-            padding: 14,
-            marginBottom: "1.25rem",
-          }}
-        >
-          <div
-            style={{
-              fontFamily: "var(--font-display)",
-              fontSize: 24,
-              color: "var(--gold)",
-            }}
-          >
-            {league?.name || "—"}
+
+        {/* All leagues list */}
+        {allLeagues.length === 0 ? (
+          <p style={{ color: "var(--off)", fontSize: 13, marginBottom: "1rem" }}>
+            No leagues yet. Create one below.
+          </p>
+        ) : (
+          <div style={{ display: "grid", gap: 8, marginBottom: "1.25rem" }}>
+            {allLeagues.map((l) => (
+              <div
+                key={l.id}
+                style={{
+                  background: "var(--card)",
+                  border: "1px solid var(--border)",
+                  borderRadius: 8,
+                  padding: "12px 16px",
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  flexWrap: "wrap",
+                  gap: 8,
+                }}
+              >
+                <div>
+                  <div style={{ fontFamily: "var(--font-display)", fontSize: 18, color: "var(--gold)" }}>
+                    {l.name}
+                  </div>
+                  <div style={{ fontFamily: "'Barlow Condensed',monospace", fontSize: 15, letterSpacing: 2, color: "var(--gold2)", marginTop: 2 }}>
+                    {l.code}
+                  </div>
+                </div>
+                <div style={{ fontFamily: "var(--font-cond)", fontSize: 13, color: "var(--off)", textAlign: "right" }}>
+                  <span style={{ fontSize: 22, color: "var(--fg)", fontWeight: 700, display: "block" }}>{l.memberCount}</span>
+                  players
+                </div>
+              </div>
+            ))}
           </div>
-          <div
-            style={{
-              fontFamily: "'Barlow Condensed',monospace",
-              fontSize: 18,
-              letterSpacing: 3,
-              color: "var(--gold2)",
-              marginTop: 4,
-            }}
-          >
-            {league?.code || "No league yet."}
-          </div>
-        </div>
+        )}
+
+        {/* Create new league */}
         <div className="fg">
           <label className="flabel">New League Name</label>
           <input
