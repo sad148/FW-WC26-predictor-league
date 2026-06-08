@@ -2,18 +2,18 @@ import { NextRequest } from 'next/server';
 import { and, asc, eq, sql as rawSql } from 'drizzle-orm';
 import { db } from '@/db/client';
 import { bets, fixtures } from '@/db/schema';
-import { requireUser } from '@/lib/session';
+import { requireActiveLeague } from '@/lib/session';
 import { HttpError } from '@/lib/errors';
 import { ok, fail, handleError } from '@/lib/responses';
 
-/** GET /api/bets — list current user's bets. */
+/** GET /api/bets — list current user's bets for the active league. */
 export async function GET() {
   try {
-    const session = await requireUser();
+    const session = await requireActiveLeague();
     const rows = await db
       .select()
       .from(bets)
-      .where(eq(bets.userId, session.userId!))
+      .where(and(eq(bets.userId, session.userId!), eq(bets.leagueId, session.activeLeagueId)))
       .orderBy(asc(bets.createdAt));
     return ok({ bets: rows });
   } catch (err) {
@@ -21,25 +21,24 @@ export async function GET() {
   }
 }
 
-/** POST /api/bets — place a new bet. One per (user, match). */
+/** POST /api/bets — place a new bet for the active league. One per (user, match, league). */
 export async function POST(req: NextRequest) {
   try {
-    const session = await requireUser();
-    // Defensive: admin and player sessions are mutually exclusive at login,
-    // but reject explicitly here in case of a stale cookie pre-fix.
+    const session = await requireActiveLeague();
     if (session.isAdmin) {
       throw new HttpError(403, 'Admin accounts cannot place bets. Log out and register a player account.');
     }
-    const body = await req.json();
-    const matchId = parseInt(String(body.matchId), 10);
-    const wager   = parseInt(String(body.wager), 10);
-    if (isNaN(matchId))                   return fail('matchId is required.');
+    const body     = await req.json();
+    const matchId  = parseInt(String(body.matchId), 10);
+    const wager    = parseInt(String(body.wager), 10);
+    const leagueId = session.activeLeagueId;
+
+    if (isNaN(matchId))                        return fail('matchId is required.');
     if (isNaN(wager) || wager < 1 || wager > 8) return fail('Wager must be between 1 and 8.');
 
     const [match] = await db.select().from(fixtures).where(eq(fixtures.id, matchId));
     if (!match) return fail('Match not found.', 404);
 
-    // Time-window gate (server is the source of truth; client is informational).
     const now = new Date();
     if (!match.startTime || !match.endTime) {
       return fail('Betting window not set for this match yet.', 409);
@@ -53,15 +52,15 @@ export async function POST(req: NextRequest) {
     const existing = await db
       .select()
       .from(bets)
-      .where(and(eq(bets.userId, session.userId!), eq(bets.matchId, matchId)));
+      .where(and(eq(bets.userId, session.userId!), eq(bets.matchId, matchId), eq(bets.leagueId, leagueId)));
     if (existing.length > 0) return fail('You already placed a bet on this match.', 409);
 
-    // Wallet check: cannot wager more coins than currently available.
     const walletResult = await db.execute<{ wallet: number }>(rawSql`
       SELECT (
         100
-        + COALESCE((SELECT SUM(-wager + CASE WHEN outcome != 'pending' THEN points_awarded ELSE 0 END) FROM bets WHERE user_id = ${session.userId}), 0)
-        + COALESCE((SELECT SUM(coins_awarded) FROM bailouts WHERE user_id = ${session.userId}), 0)
+        + COALESCE((SELECT SUM(-wager + CASE WHEN outcome != 'pending' THEN points_awarded ELSE 0 END)
+                    FROM bets WHERE user_id = ${session.userId} AND league_id = ${leagueId}), 0)
+        + COALESCE((SELECT SUM(coins_awarded) FROM bailouts WHERE user_id = ${session.userId} AND league_id = ${leagueId}), 0)
       )::int AS wallet
     `);
     const wallet = walletResult.rows[0]?.wallet ?? 0;
@@ -71,6 +70,7 @@ export async function POST(req: NextRequest) {
       .insert(bets)
       .values({
         userId:  session.userId!,
+        leagueId,
         matchId,
         q1:      body.q1 || null,
         q2:      body.q2 || null,
