@@ -577,7 +577,6 @@ export default function AdminPage() {
     try {
       const res = await api.adminReset();
       toast("✓ Reset", res.message);
-      setLeague(null);
     } catch (e) {
       toast("Error", (e as Error).message);
     }
