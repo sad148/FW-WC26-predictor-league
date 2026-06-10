@@ -82,6 +82,7 @@ export default function HomePage() {
           { n: '100', l: 'Starting Coins' },
           { n: '8',   l: 'Max Wager / Match' },
           { n: '16',  l: 'Max Win / Match' },
+          { n: '4',   l: 'Missed Bet Penalty' },
           { n: '15',  l: 'Trivia Questions' },
         ].map(({ n, l }) => (
           <div key={l} style={{
@@ -137,6 +138,17 @@ export default function HomePage() {
             not a minute after, not "almost kickoff." At kickoff.
             Your timezone, your alarm, your dog eating your phone — none of it matters.
             No exceptions. This policy has no appeals process.
+          </p>
+        </div>
+
+        <div className="how-card">
+          <div className="how-icon">🚫</div>
+          <div className="how-h">Miss a Match? That's 4 Coins Gone.</div>
+          <p className="how-p">
+            If a match closes and you haven't placed any bet on it, 4 coins are
+            automatically deducted from your wallet — no warning, no grace period.
+            The system applies this the moment results are settled.
+            You joined the league to play. So play every match.
           </p>
         </div>
 

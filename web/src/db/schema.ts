@@ -140,6 +140,18 @@ export const bailouts = pgTable('bailouts', {
   createdAt:      timestamp('created_at').defaultNow().notNull(),
 });
 
+// fixture_penalties — 4-coin deduction for users who missed betting on a fixture.
+export const fixturePenalties = pgTable('fixture_penalties', {
+  id:            serial('id').primaryKey(),
+  userId:        integer('user_id').notNull().references(() => users.id,    { onDelete: 'cascade' }),
+  leagueId:      integer('league_id').notNull().references(() => leagues.id, { onDelete: 'cascade' }),
+  matchId:       integer('match_id').notNull().references(() => fixtures.id, { onDelete: 'cascade' }),
+  coinsDeducted: integer('coins_deducted').notNull().default(4),
+  createdAt:     timestamp('created_at').defaultNow().notNull(),
+}, (t) => ({
+  userMatchLeagueUnique: unique('fixture_penalties_user_match_league').on(t.userId, t.matchId, t.leagueId),
+}));
+
 // bracket_picks — one per (user, entry, league).
 export const bracketPicks = pgTable('bracket_picks', {
   id:            serial('id').primaryKey(),

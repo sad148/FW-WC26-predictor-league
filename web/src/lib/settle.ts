@@ -1,6 +1,6 @@
-import { and, eq } from 'drizzle-orm';
+import { and, eq, lt } from 'drizzle-orm';
 import { db } from '@/db/client';
-import { bets, fixtures } from '@/db/schema';
+import { bets, fixtures, fixturePenalties, leagueMembers } from '@/db/schema';
 
 interface Preds {
   q1?: string | null;
@@ -78,5 +78,48 @@ export async function settlePendingBets(matchId: number, scoreA: number, scoreB:
     const { outcome, pointsAwarded } = evaluateBet(b, scoreA, scoreB, firstScorer, totalCards, b.wager);
     await db.update(bets).set({ outcome, pointsAwarded }).where(eq(bets.id, b.id));
   }
+
+  await applyMissedBetPenalties(matchId);
+
   return pending.length;
+}
+
+/**
+ * For every league, deducts 4 coins from each member who joined before the
+ * fixture's betting window closed but placed no bet on that fixture.
+ * Idempotent: ON CONFLICT DO NOTHING on (user, match, league).
+ */
+async function applyMissedBetPenalties(matchId: number): Promise<void> {
+  const [match] = await db.select().from(fixtures).where(eq(fixtures.id, matchId));
+  if (!match?.endTime) return;
+
+  const leagues = await db
+    .selectDistinct({ leagueId: leagueMembers.leagueId })
+    .from(leagueMembers);
+
+  for (const { leagueId } of leagues) {
+    const eligible = await db
+      .select({ userId: leagueMembers.userId })
+      .from(leagueMembers)
+      .where(and(
+        eq(leagueMembers.leagueId, leagueId),
+        lt(leagueMembers.joinedAt, match.endTime),
+      ));
+
+    const bettorRows = await db
+      .select({ userId: bets.userId })
+      .from(bets)
+      .where(and(eq(bets.matchId, matchId), eq(bets.leagueId, leagueId)));
+
+    const bettorIds = new Set(bettorRows.map((b) => b.userId));
+
+    for (const { userId } of eligible) {
+      if (!bettorIds.has(userId)) {
+        await db
+          .insert(fixturePenalties)
+          .values({ userId, leagueId, matchId, coinsDeducted: 4 })
+          .onConflictDoNothing();
+      }
+    }
+  }
 }

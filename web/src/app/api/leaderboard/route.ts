@@ -44,12 +44,12 @@ export async function GET(req: NextRequest) {
         u.id::text      AS "playerId",
         u.name          AS "name",
         m.pending       AS "pending",
-        (m.wallet + bo.coins_awarded)::int AS "wallet",
+        (m.wallet + bo.coins_awarded - fp.coins_deducted)::int AS "wallet",
         m.match_pts     AS "matchPts",
         t.trivia_pts    AS "triviaPts",
         (b.bracket_pts + g.group_pts)::int AS "bracketPts",
         bo.points_deducted AS "bailoutPenalty",
-        ((m.wallet + bo.coins_awarded) / 10 + t.trivia_pts + b.bracket_pts + g.group_pts - bo.points_deducted)::int AS "totalPts"
+        ((m.wallet + bo.coins_awarded - fp.coins_deducted) / 10 + t.trivia_pts + b.bracket_pts + g.group_pts - bo.points_deducted)::int AS "totalPts"
       FROM users u
       JOIN league_members lm ON lm.user_id = u.id AND lm.league_id = ${leagueId}
       LEFT JOIN LATERAL (
@@ -79,6 +79,10 @@ export async function GET(req: NextRequest) {
           COALESCE(SUM(points_deducted), 0)::int  AS points_deducted
         FROM bailouts WHERE user_id = u.id AND league_id = ${leagueId}
       ) bo ON TRUE
+      LEFT JOIN LATERAL (
+        SELECT COALESCE(SUM(coins_deducted), 0)::int AS coins_deducted
+        FROM fixture_penalties WHERE user_id = u.id AND league_id = ${leagueId}
+      ) fp ON TRUE
       ORDER BY "totalPts" DESC, "wallet" DESC
     `);
     return ok({ leaderboard: result.rows });
