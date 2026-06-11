@@ -79,7 +79,7 @@ export default function MatchesPage() {
 
   function setDraft(matchId: number, patch: Partial<Draft>) {
     setDrafts(d => {
-      const base: Draft = d[matchId] ?? { wager: 2 };
+      const base: Draft = d[matchId] ?? { wager: betByMatch.get(matchId)?.wager ?? 2 };
       return { ...d, [matchId]: { ...base, ...patch } };
     });
   }
@@ -100,22 +100,24 @@ export default function MatchesPage() {
   async function submit(matchId: number) {
     if (!user) { toast('Sign in first', 'Open Account to log in or register.'); return; }
     if (isAdmin) { toast('Admin can\'t bet', 'Register a separate player account.'); return; }
-    const draft = drafts[matchId] || { wager: 2 };
-    if (!draft.q1 && !draft.q2 && !draft.q3 && !draft.q4) {
+    const draft    = drafts[matchId];
+    const existing = betByMatch.get(matchId);
+    const q1    = draft?.q1    ?? existing?.q1    ?? undefined;
+    const q2    = draft?.q2    ?? existing?.q2    ?? undefined;
+    const q3    = draft?.q3    ?? existing?.q3    ?? undefined;
+    const q4    = draft?.q4    ?? existing?.q4    ?? undefined;
+    const wager = draft?.wager ?? existing?.wager ?? 2;
+    if (!q1 && !q2 && !q3 && !q4) {
       toast('No predictions!', 'Select at least one answer.');
       return;
     }
     setSub(matchId);
     try {
-      await api.placeBet({
-        matchId,
-        q1: draft.q1, q2: draft.q2, q3: draft.q3, q4: draft.q4,
-        wager: draft.wager,
-      });
-      toast('Bet placed! 🎯', `${draft.wager} coins wagered.`);
+      await api.placeBet({ matchId, q1, q2, q3, q4, wager });
+      toast(existing ? 'Bet updated! ✏️' : 'Bet placed! 🎯', `${wager} coins wagered.`);
       setDrafts(d => { const c = { ...d }; delete c[matchId]; return c; });
       await loadBets();
-      await refresh();   // updates wallet chip in header
+      await refresh();
     } catch (e) {
       toast('Error', (e as Error).message);
     } finally {
@@ -196,8 +198,8 @@ export default function MatchesPage() {
           {filtered.map(m => {
             const existing = betByMatch.get(m.id);
             const state    = matchState(m, now);
-            const draft    = drafts[m.id] || { wager: 2 };
-            const canBet   = !!user && !isAdmin && state === 'open' && !existing;
+            const draft    = drafts[m.id] || { wager: existing?.wager ?? 2 };
+            const canBet   = !!user && !isAdmin && state === 'open';
             const showForm = state !== 'complete';
 
             return (
@@ -242,19 +244,19 @@ export default function MatchesPage() {
                   <>
                     <div className="mc-preds">
                       <PredRow label="Q1 Result"        opts={[...Q1]}
-                               value={existing?.q1 ?? draft.q1}
+                               value={draft.q1 ?? existing?.q1}
                                disabled={!canBet}
                                onPick={(v) => setDraft(m.id, { q1: v })} />
                       <PredRow label="Q2 First Goal"    opts={[m.teamA, m.teamB, 'No Goal']}
-                               value={existing?.q2 ?? draft.q2}
+                               value={draft.q2 ?? existing?.q2}
                                disabled={!canBet}
                                onPick={(v) => setDraft(m.id, { q2: v })} />
                       <PredRow label="Q3 Goals O/U"     opts={[...Q3]}
-                               value={existing?.q3 ?? draft.q3}
+                               value={draft.q3 ?? existing?.q3}
                                disabled={!canBet}
                                onPick={(v) => setDraft(m.id, { q3: v })} />
                       <PredRow label="Q4 Total Cards"   opts={[...Q4]}
-                               value={existing?.q4 ?? draft.q4}
+                               value={draft.q4 ?? existing?.q4}
                                disabled={!canBet}
                                onPick={(v) => setDraft(m.id, { q4: v })} />
                     </div>
@@ -265,7 +267,7 @@ export default function MatchesPage() {
                         type="text"
                         inputMode="numeric"
                         pattern="[0-9]*"
-                        value={existing ? String(existing.wager) : (wagerRaw[m.id] ?? String(draft.wager))}
+                        value={wagerRaw[m.id] ?? String(draft.wager)}
                         disabled={!canBet}
                         onChange={(e) => {
                           const raw = e.target.value.replace(/[^0-9]/g, '');
@@ -282,7 +284,7 @@ export default function MatchesPage() {
                         }}
                       />
                       <span className="wmax">coins / 8 max</span>
-                      {existing
+                      {existing && !canBet
                         ? <span className="saved-badge">✓ Submitted</span>
                         : <button
                             className="wsubmit"
@@ -293,6 +295,7 @@ export default function MatchesPage() {
                             : state === 'scheduled'   ? 'Opens later'
                             : state === 'closed'      ? 'Closed'
                             : state === 'unscheduled' ? 'Awaiting times'
+                            : existing ? 'Update Bet'
                             : 'Place Bet'
                           }</button>
                       }

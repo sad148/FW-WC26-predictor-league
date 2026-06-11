@@ -49,11 +49,10 @@ export async function POST(req: NextRequest) {
       return fail('Match result is in; no more bets.', 409);
     }
 
-    const existing = await db
+    const [existing] = await db
       .select()
       .from(bets)
       .where(and(eq(bets.userId, session.userId!), eq(bets.matchId, matchId), eq(bets.leagueId, leagueId)));
-    if (existing.length > 0) return fail('You already placed a bet on this match.', 409);
 
     const walletResult = await db.execute<{ wallet: number }>(rawSql`
       SELECT (
@@ -64,7 +63,9 @@ export async function POST(req: NextRequest) {
       )::int AS wallet
     `);
     const wallet = walletResult.rows[0]?.wallet ?? 0;
-    if (wager > wallet) return fail(`Not enough coins. You have ${wallet} coins but tried to wager ${wager}.`, 409);
+    // wallet already deducted the existing pending wager (if any); add it back for the affordability check
+    const available = wallet + (existing?.wager ?? 0);
+    if (wager > available) return fail(`Not enough coins. You have ${available} coins available but tried to wager ${wager}.`, 409);
 
     const [row] = await db
       .insert(bets)
@@ -78,6 +79,18 @@ export async function POST(req: NextRequest) {
         q4:      body.q4 || null,
         wager,
         outcome: 'pending',
+      })
+      .onConflictDoUpdate({
+        target: [bets.userId, bets.matchId, bets.leagueId],
+        set: {
+          q1:            body.q1 || null,
+          q2:            body.q2 || null,
+          q3:            body.q3 || null,
+          q4:            body.q4 || null,
+          wager,
+          outcome:       'pending',
+          pointsAwarded: 0,
+        },
       })
       .returning();
 
