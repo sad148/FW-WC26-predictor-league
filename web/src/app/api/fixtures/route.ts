@@ -8,7 +8,7 @@ import { ok, fail, handleError } from '@/lib/responses';
 /** GET /api/fixtures — list all matches. Open to anyone. */
 export async function GET() {
   try {
-    const rows = await db.select().from(fixtures).orderBy(asc(fixtures.id));
+    const rows = await db.select().from(fixtures).orderBy(asc(fixtures.endTime), asc(fixtures.id));
     return ok({ matches: rows });
   } catch (err) {
     return handleError(err);
