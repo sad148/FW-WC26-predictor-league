@@ -115,7 +115,7 @@ export default function HomePage() {
             Every match has 4 questions: Result · First Scorer · Goals O/U · Total Cards.
             Wager up to 8 coins per match — your bet is split equally across all 4.
             Bet 4 coins? Each question gets 1, and you stand to win back 8. Bet 8? You could pocket 16.
-            Simple maths. Difficult execution.
+            Leave a question blank and it counts as a wrong answer. Answer them all.
           </p>
         </div>
 
