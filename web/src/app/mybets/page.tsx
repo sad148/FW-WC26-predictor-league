@@ -9,6 +9,28 @@ const QLABEL: Record<string, string> = {
   q1: 'Result', q2: 'First Goal', q3: 'Goals', q4: 'Cards',
 };
 
+function qCorrect(b: Bet, m: Match): Record<string, boolean | null> {
+  if (m.scoreA === null || m.scoreB === null || m.firstScorer === null || m.totalCards === null) {
+    return { q1: null, q2: null, q3: null, q4: null };
+  }
+  const result = m.scoreA > m.scoreB ? 'Home Win' : m.scoreB > m.scoreA ? 'Away Win' : 'Draw';
+  const total  = m.scoreA + m.scoreB;
+  return {
+    q1: b.q1 ? b.q1 === result : null,
+    q2: b.q2 ? b.q2 === m.firstScorer : null,
+    q3: b.q3 ? (
+      (b.q3 === '0–1 Goals' && total <= 1) ||
+      (b.q3 === '2–3 Goals' && total >= 2 && total <= 3) ||
+      (b.q3 === '4+ Goals'  && total >= 4)
+    ) : null,
+    q4: b.q4 ? (
+      (b.q4 === '0–2 Cards' && m.totalCards <= 2) ||
+      (b.q4 === '3–5 Cards' && m.totalCards >= 3 && m.totalCards <= 5) ||
+      (b.q4 === '6+ Cards'  && m.totalCards >= 6)
+    ) : null,
+  };
+}
+
 export default function MyBetsPage() {
   const { user, isAdmin, isLoading } = useAuth();
   const { toast } = useToast();
@@ -32,8 +54,6 @@ export default function MyBetsPage() {
 
   const counts = useMemo(() => ({
     placed:  bets.length,
-    wins:    bets.filter(b => b.outcome === 'win').length,
-    losses:  bets.filter(b => b.outcome === 'loss').length,
     pending: bets.filter(b => b.outcome === 'pending').length,
   }), [bets]);
 
@@ -65,8 +85,6 @@ export default function MyBetsPage() {
 
       <div className="bstats">
         <div className="bstat"><div className="bn">{counts.placed}</div><div className="bl">Placed</div></div>
-        <div className="bstat"><div className="bn" style={{ color: '#2ecc71' }}>{counts.wins}</div><div className="bl">Wins</div></div>
-        <div className="bstat"><div className="bn" style={{ color: '#e74c3c' }}>{counts.losses}</div><div className="bl">Losses</div></div>
         <div className="bstat"><div className="bn" style={{ color: 'var(--off)' }}>{counts.pending}</div><div className="bl">Pending</div></div>
       </div>
 
@@ -80,15 +98,22 @@ export default function MyBetsPage() {
         <div className="bets-list">
           {[...bets].reverse().map(b => {
             const m = matchById.get(b.matchId);
+            const settled = b.outcome !== 'pending';
+            const correct = m && settled ? qCorrect(b, m) : null;
             const preds = { q1: b.q1, q2: b.q2, q3: b.q3, q4: b.q4 };
             const plines = Object.entries(preds)
               .filter(([, v]) => v)
-              .map(([k, v]) => <span key={k}>{QLABEL[k]}: <strong>{v}</strong></span>);
-            const outClass = b.outcome === 'win' ? 'out-win' : b.outcome === 'loss' ? 'out-lose' : 'out-pend';
-            const outText  =
-              b.outcome === 'win'  ? `+${b.wager} coins ✓` :
-              b.outcome === 'loss' ? `−${b.wager} coins ✗` :
-                                     `${b.wager} coins (pending)`;
+              .map(([k, v]) => {
+                const mark = correct?.[k];
+                const marker = mark === true ? <span style={{ color: '#2ecc71' }}> ✓</span>
+                             : mark === false ? <span style={{ color: '#e74c3c' }}> ✗</span>
+                             : null;
+                return <span key={k}>{QLABEL[k]}: <strong>{v}</strong>{marker}</span>;
+              });
+            const outClass = b.outcome === 'pending' ? 'out-pend' : 'out-win';
+            const outText  = b.outcome === 'pending'
+              ? `${b.wager} coins (pending)`
+              : `${b.pointsAwarded} coins back`;
             return (
               <div className="bet-card" key={b.id}>
                 <div>

@@ -80,6 +80,7 @@ export interface Bet {
   q4: string | null;
   wager: number;
   outcome: "pending" | "win" | "loss";
+  pointsAwarded: number;
   createdAt: string;
 }
 
