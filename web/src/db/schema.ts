@@ -65,6 +65,10 @@ export const questions = pgTable('questions', {
   phase:         integer('phase').notNull(),
   text:          text('text').notNull(),
   options:       text('options'),
+  questionType:  text('question_type').notNull().default('option-buttons'),
+  // 'option-buttons' | 'free-text' | 'comma-teams'
+  maxSelections: integer('max_selections'),
+  // comma-teams only: expected count, shown as a hint to the user
   pointValue:    integer('point_value').notNull(),
   winningAnswer: text('winning_answer'),
   status:        text('status').notNull().default('open'),

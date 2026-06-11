@@ -8,11 +8,16 @@ import { ok, fail, handleError } from '@/lib/responses';
 const parseOpts  = (raw: string | null) => raw ? raw.split('|') : null;
 const serializeOpts = (v: unknown) =>
   Array.isArray(v) && v.length > 0 ? v.map(String).filter(Boolean).join('|') : null;
+const VALID_TYPES = ['option-buttons', 'free-text', 'comma-teams'];
+
+// For comma-teams: split by comma, trim, lowercase, sort — order-insensitive comparison.
+const normalizeCommaTeams = (s: string) =>
+  s.split(',').map(t => t.trim().toLowerCase()).filter(Boolean).sort().join(',');
 
 /**
  * PATCH /api/questions/[id] — admin updates a question.
  * If status flips to 'settled' AND winningAnswer is set, all pending answers
- * are scored: case-insensitive trim compare → win awards question's pointValue.
+ * are scored. comma-teams questions use order-insensitive set comparison.
  */
 export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   try {
@@ -25,23 +30,34 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     const has  = (k: string) => Object.prototype.hasOwnProperty.call(body, k);
 
     const updates: Partial<typeof questions.$inferInsert> = {};
-    if (has('text'))          updates.text          = String(body.text);
-    if (has('phase'))         updates.phase         = Number(body.phase);
-    if (has('pointValue'))    updates.pointValue    = Number(body.pointValue);
-    if (has('options'))       updates.options       = serializeOpts(body.options);
-    if (has('winningAnswer')) updates.winningAnswer = body.winningAnswer == null || body.winningAnswer === ''
-                                                       ? null : String(body.winningAnswer);
-    if (has('status'))        updates.status        = String(body.status);
+    if (has('text'))           updates.text          = String(body.text);
+    if (has('phase'))          updates.phase         = Number(body.phase);
+    if (has('pointValue'))     updates.pointValue    = Number(body.pointValue);
+    if (has('options'))        updates.options       = serializeOpts(body.options);
+    if (has('questionType'))   updates.questionType  = VALID_TYPES.includes(body.questionType)
+                                                        ? String(body.questionType) : 'option-buttons';
+    if (has('maxSelections'))  updates.maxSelections = body.maxSelections != null && Number(body.maxSelections) > 1
+                                                        ? Number(body.maxSelections) : null;
+    if (has('winningAnswer'))  updates.winningAnswer = body.winningAnswer == null || body.winningAnswer === ''
+                                                        ? null : String(body.winningAnswer);
+    if (has('status'))         updates.status        = String(body.status);
 
     const [row] = await db.update(questions).set(updates).where(eq(questions.id, qid)).returning();
     if (!row) return fail('Question not found.', 404);
 
     let settled = 0;
     if (row.status === 'settled' && row.winningAnswer) {
-      const expected = row.winningAnswer.trim().toLowerCase();
+      const isCommaTeams = row.questionType === 'comma-teams';
+      const expected = isCommaTeams
+        ? normalizeCommaTeams(row.winningAnswer)
+        : row.winningAnswer.trim().toLowerCase();
+
       const all = await db.select().from(questionAnswers).where(eq(questionAnswers.questionId, qid));
       for (const a of all) {
-        const correct = a.answer.trim().toLowerCase() === expected;
+        const actual  = isCommaTeams
+          ? normalizeCommaTeams(a.answer)
+          : a.answer.trim().toLowerCase();
+        const correct = actual === expected;
         await db.update(questionAnswers).set({
           outcome:       correct ? 'win' : 'loss',
           pointsAwarded: correct ? row.pointValue : 0,

@@ -150,7 +150,25 @@ export default function TriviaPage() {
 
                       {/* Answer area */}
                       <div className="mc-preds">
-                        {q.options
+                        {q.questionType === 'comma-teams' ? (
+                          <div style={{ padding: '8px 14px 4px' }}>
+                            <div style={{
+                              fontFamily: 'var(--font-cond)', fontSize: 12,
+                              color: 'var(--gold2)', marginBottom: 6,
+                            }}>
+                              Enter {q.maxSelections ? `exactly ${q.maxSelections}` : 'the'} team names separated by commas
+                              {q.maxSelections ? ` (e.g. France, Germany, Brazil…)` : ''}
+                            </div>
+                            <input
+                              className="finput"
+                              type="text"
+                              placeholder={q.maxSelections ? `Team 1, Team 2, … (${q.maxSelections} total)` : 'France, Germany, Brazil…'}
+                              value={draft}
+                              disabled={!canEdit}
+                              onChange={(e) => setDrafts(d => ({ ...d, [q.id]: e.target.value }))}
+                            />
+                          </div>
+                        ) : q.options
                           ? <div className="prow">
                               <div className="popts" style={{ marginLeft: 0 }}>
                                 {q.options.map(opt => (

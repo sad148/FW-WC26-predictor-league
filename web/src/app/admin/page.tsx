@@ -45,15 +45,19 @@ const EMPTY_FIXTURE: FixtureDraft = {
 interface NewQuestionDraft {
   text: string;
   phase: 1 | 2;
-  pointValue: string; // string for input field
-  optionsRaw: string; // comma-separated; empty = free-text
+  pointValue: string;
+  questionType: string;
+  optionsRaw: string;
+  maxSelectionsRaw: string;
 }
 
 const EMPTY_QUESTION: NewQuestionDraft = {
   text: "",
   phase: 1,
   pointValue: "5",
+  questionType: "option-buttons",
   optionsRaw: "",
+  maxSelectionsRaw: "",
 };
 
 interface QuestionDraft {
@@ -277,15 +281,19 @@ export default function AdminPage() {
   }
 
   async function addQuestion() {
-    const text = newQ.text.trim();
-    const opts = newQ.optionsRaw
-      .split(",")
-      .map((s) => s.trim())
-      .filter(Boolean);
-    const pts = parseInt(newQ.pointValue, 10);
+    const text   = newQ.text.trim();
+    const opts   = newQ.questionType === 'option-buttons'
+      ? newQ.optionsRaw.split(",").map((s) => s.trim()).filter(Boolean)
+      : [];
+    const pts    = parseInt(newQ.pointValue, 10);
+    const maxSel = newQ.maxSelectionsRaw ? parseInt(newQ.maxSelectionsRaw, 10) : null;
     if (!text) return toast("Missing fields", "Enter question text.");
     if (!Number.isInteger(pts) || pts < 1)
       return toast("Invalid points", "Point value must be a positive integer.");
+    if (newQ.questionType === 'option-buttons' && opts.length === 0)
+      return toast("Missing options", "Option-buttons questions require at least 2 options.");
+    if (maxSel !== null && (isNaN(maxSel) || maxSel < 2))
+      return toast("Invalid count", "Team count must be 2 or more.");
 
     setAddingQ(true);
     try {
@@ -293,7 +301,9 @@ export default function AdminPage() {
         text,
         phase: newQ.phase,
         pointValue: pts,
+        questionType: newQ.questionType,
         options: opts.length > 0 ? opts : null,
+        maxSelections: maxSel,
       });
       toast("✓ Question added", `Phase ${newQ.phase} · ${pts} pts`);
       setNewQ(EMPTY_QUESTION);
@@ -1187,11 +1197,10 @@ export default function AdminPage() {
                           marginTop: 2,
                         }}
                       >
-                        Phase {q.phase} · {q.pointValue} pt
-                        {q.pointValue === 1 ? "" : "s"}
-                        {q.options
-                          ? ` · options: ${q.options.join(", ")}`
-                          : " · free-text"}
+                        Phase {q.phase} · {q.pointValue} pt{q.pointValue === 1 ? "" : "s"}
+                        {" · "}{q.questionType}
+                        {q.maxSelections ? ` · pick-${q.maxSelections}` : ""}
+                        {q.options ? ` · ${q.options.length} options` : ""}
                       </div>
                     </div>
                   </div>
@@ -1351,16 +1360,42 @@ export default function AdminPage() {
           </div>
         </div>
         <div className="fg">
-          <label className="flabel">
-            Options (comma-separated, leave blank for free-text)
-          </label>
-          <input
+          <label className="flabel">Question Type</label>
+          <select
             className="finput"
-            placeholder="e.g. Brazil, Argentina, France, Germany"
-            value={newQ.optionsRaw}
-            onChange={(e) => setNewQ({ ...newQ, optionsRaw: e.target.value })}
-          />
+            style={{ cursor: "pointer" }}
+            value={newQ.questionType}
+            onChange={(e) => setNewQ({ ...newQ, questionType: e.target.value, optionsRaw: "", maxSelectionsRaw: "" })}
+          >
+            <option value="option-buttons">Option Buttons (radio-style)</option>
+            <option value="comma-teams">Comma-separated Teams</option>
+            <option value="free-text">Free Text</option>
+          </select>
         </div>
+        {newQ.questionType === "option-buttons" && (
+          <div className="fg">
+            <label className="flabel">Options (comma-separated)</label>
+            <input
+              className="finput"
+              placeholder="e.g. Brazil, Argentina, France, Germany"
+              value={newQ.optionsRaw}
+              onChange={(e) => setNewQ({ ...newQ, optionsRaw: e.target.value })}
+            />
+          </div>
+        )}
+        {newQ.questionType === "comma-teams" && (
+          <div className="fg">
+            <label className="flabel">Number of Teams (shown as hint to users)</label>
+            <input
+              className="finput"
+              type="number"
+              min={2}
+              placeholder="e.g. 8"
+              value={newQ.maxSelectionsRaw}
+              onChange={(e) => setNewQ({ ...newQ, maxSelectionsRaw: e.target.value })}
+            />
+          </div>
+        )}
         <button
           className="btn-gold"
           style={{ width: "100%" }}

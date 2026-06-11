@@ -100,6 +100,8 @@ export interface Question {
   phase: number;
   text: string;
   options: string[] | null;
+  questionType: "option-buttons" | "free-text" | "comma-teams";
+  maxSelections: number | null;
   pointValue: number;
   winningAnswer: string | null;
   status: "open" | "settled";
@@ -238,6 +240,8 @@ export const api = {
     phase: number;
     pointValue: number;
     options?: string[] | null;
+    questionType?: string;
+    maxSelections?: number | null;
   }) =>
     request<{ question: Question }>("/api/questions", {
       method: "POST",
@@ -250,6 +254,8 @@ export const api = {
       phase: number;
       pointValue: number;
       options: string[] | null;
+      questionType: string;
+      maxSelections: number | null;
       winningAnswer: string | null;
       status: "open" | "settled";
     }>,
