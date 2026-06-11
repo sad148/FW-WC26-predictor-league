@@ -168,7 +168,7 @@ export default function BracketsPage() {
             const draft    = groupDraft(g.id, teams);
             const existing = groupPickById.get(g.id);
             const settled  = g.status === 'settled';
-            const canEdit  = !!user && !isAdmin && phase1Open && !settled && !existing;
+            const canEdit  = !!user && !isAdmin && phase1Open && !settled;
             const badge    = settled
               ? { cls: 'st-done', text: '✓ SETTLED' }
               : { cls: WINDOW_CLS[phase1State], text: WINDOW_STATE_LABEL[phase1State] };
@@ -202,7 +202,6 @@ export default function BracketsPage() {
                         >
                           <option value="">— pick team —</option>
                           {available.map(t => <option key={t} value={t}>{t}</option>)}
-                          {draft[i] && <option value={draft[i]}>{draft[i]}</option>}
                         </select>
                       </div>
                     );
@@ -219,14 +218,25 @@ export default function BracketsPage() {
                   ) : (
                     <div style={{ fontFamily: 'var(--font-cond)', fontSize: 13, color: 'var(--off)' }}>No pick yet</div>
                   )}
-                  {!settled && !existing && (
-                    <button className="wsubmit" disabled={!canEdit || savingGid === g.id} onClick={() => submitGroupPick(g)}>
-                      {savingGid === g.id ? 'Saving…'
-                        : phase1State === 'scheduled' ? 'Opens later'
-                        : phase1State === 'closed'    ? 'Closed'
-                        : phase1State === 'unset'     ? 'Not open'
-                        : 'Submit'}
-                    </button>
+                  {!settled && (existing && !canEdit
+                    ? null
+                    : <div style={{ display: 'flex', gap: 8 }}>
+                        {canEdit && draft.some(Boolean) && (
+                          <button
+                            className="wsubmit"
+                            style={{ background: 'transparent', color: 'var(--off)', border: '1px solid var(--border)' }}
+                            onClick={() => setGroupDrafts(d => ({ ...d, [g.id]: ['', '', '', ''] }))}
+                          >Reset</button>
+                        )}
+                        <button className="wsubmit" disabled={!canEdit || savingGid === g.id} onClick={() => submitGroupPick(g)}>
+                          {savingGid === g.id ? 'Saving…'
+                            : phase1State === 'scheduled' ? 'Opens later'
+                            : phase1State === 'closed'    ? 'Closed'
+                            : phase1State === 'unset'     ? 'Not open'
+                            : existing ? 'Update'
+                            : 'Submit'}
+                        </button>
+                      </div>
                   )}
                 </div>
 
@@ -262,7 +272,7 @@ export default function BracketsPage() {
             const existing  = pickByEntry.get(entry.id);
             const draft     = drafts[entry.id] ?? existing?.pick ?? '';
             const isSettled = entry.status === 'settled';
-            const canEdit   = !!user && !isAdmin && phase2Open && !isSettled && !existing;
+            const canEdit   = !!user && !isAdmin && phase2Open && !isSettled;
             const badge     = isSettled
               ? { cls: 'st-done', text: '✓ SETTLED' }
               : { cls: WINDOW_CLS[phase2State], text: WINDOW_STATE_LABEL[phase2State] };
@@ -297,14 +307,16 @@ export default function BracketsPage() {
                         {existing.outcome === 'loss' && <span style={{ color: '#e74c3c', marginLeft: 8 }}>no points ✗</span>}
                       </div>
                     : <div style={{ fontFamily: 'var(--font-cond)', fontSize: 13, color: 'var(--off)' }}>No pick yet</div>}
-                  {!isSettled && !existing && (
-                    <button className="wsubmit" disabled={!canEdit || savingId === entry.id} onClick={() => submitKnockoutPick(entry)}>
-                      {savingId === entry.id ? 'Saving…'
-                        : phase2State === 'scheduled' ? 'Opens later'
-                        : phase2State === 'closed'    ? 'Closed'
-                        : phase2State === 'unset'     ? 'Not open'
-                        : 'Submit'}
-                    </button>
+                  {!isSettled && (existing && !canEdit
+                    ? null
+                    : <button className="wsubmit" disabled={!canEdit || savingId === entry.id} onClick={() => submitKnockoutPick(entry)}>
+                        {savingId === entry.id ? 'Saving…'
+                          : phase2State === 'scheduled' ? 'Opens later'
+                          : phase2State === 'closed'    ? 'Closed'
+                          : phase2State === 'unset'     ? 'Not open'
+                          : existing ? 'Update'
+                          : 'Submit'}
+                      </button>
                   )}
                 </div>
                 {isSettled && entry.correctPick && (
