@@ -110,10 +110,10 @@ export function Providers({ children }: { children: React.ReactNode }) {
         try {
           const lb = await api.leaderboard();
           const mine = lb.leaderboard.find(p => p.playerId === meRes.user!.playerId);
-          const w = mine?.wallet ?? 100;
-          setWallet(w);
+          const fullW = mine?.fullWallet ?? 100;
+          setWallet(fullW);
           const remainingPts = (mine?.triviaPts ?? 0) + (mine?.bracketPts ?? 0) - (mine?.bailoutPenalty ?? 0);
-          setBailoutEligible(w <= 0 && remainingPts >= 10);
+          setBailoutEligible(fullW <= 0 && remainingPts >= 10);
         } catch { setWallet(100); setBailoutEligible(false); }
       } else {
         setWallet(null);

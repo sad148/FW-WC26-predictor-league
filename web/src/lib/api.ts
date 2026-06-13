@@ -89,6 +89,7 @@ export interface LeaderboardRow {
   name: string;
   pending: number;
   wallet: number;
+  fullWallet: number;
   matchPts: number;
   triviaPts: number;
   bracketPts: number;

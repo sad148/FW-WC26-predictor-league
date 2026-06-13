@@ -34,6 +34,7 @@ export async function GET(req: NextRequest) {
       name:           string;
       pending:        number;
       wallet:         number;
+      fullWallet:     number;
       matchPts:       number;
       triviaPts:      number;
       bracketPts:     number;
@@ -45,6 +46,7 @@ export async function GET(req: NextRequest) {
         u.name          AS "name",
         m.pending       AS "pending",
         (m.wallet + bo.coins_awarded - fp.coins_deducted)::int AS "wallet",
+        (m.full_wallet + bo.coins_awarded - fp.coins_deducted)::int AS "fullWallet",
         m.match_pts     AS "matchPts",
         t.trivia_pts    AS "triviaPts",
         (b.bracket_pts + g.group_pts)::int AS "bracketPts",
@@ -56,8 +58,9 @@ export async function GET(req: NextRequest) {
         SELECT
           COALESCE(SUM(CASE WHEN outcome = 'pending' THEN 1 ELSE 0 END), 0)::int AS pending,
           (100 + COALESCE(SUM(
-            -wager + CASE WHEN outcome != 'pending' THEN points_awarded ELSE 0 END
+            CASE WHEN outcome != 'pending' THEN (-wager + points_awarded) ELSE 0 END
           ), 0))::int AS wallet,
+          (100 + COALESCE(SUM(-wager + CASE WHEN outcome != 'pending' THEN points_awarded ELSE 0 END), 0))::int AS full_wallet,
           COALESCE(SUM(CASE WHEN outcome != 'pending' THEN points_awarded ELSE 0 END), 0)::int AS match_pts
         FROM bets WHERE user_id = u.id AND league_id = ${leagueId}
       ) m ON TRUE
