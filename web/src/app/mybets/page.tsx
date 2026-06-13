@@ -31,12 +31,15 @@ function qCorrect(b: Bet, m: Match): Record<string, boolean | null> {
   };
 }
 
+type Filter = 'all' | 'pending' | 'completed';
+
 export default function MyBetsPage() {
   const { user, isAdmin, isLoading } = useAuth();
   const { toast } = useToast();
   const [bets, setBets]     = useState<Bet[]>([]);
   const [matches, setMatch] = useState<Match[]>([]);
   const [loaded, setLoaded] = useState(false);
+  const [filter, setFilter] = useState<Filter>('all');
 
   useEffect(() => {
     if (!user || isAdmin) return;
@@ -53,9 +56,21 @@ export default function MyBetsPage() {
   }, [matches]);
 
   const counts = useMemo(() => ({
-    placed:  bets.length,
-    pending: bets.filter(b => b.outcome === 'pending').length,
+    placed:    bets.length,
+    pending:   bets.filter(b => b.outcome === 'pending').length,
+    completed: bets.filter(b => b.outcome !== 'pending').length,
   }), [bets]);
+
+  const visibleBets = useMemo(() => {
+    const filtered = filter === 'pending'   ? bets.filter(b => b.outcome === 'pending')
+                   : filter === 'completed' ? bets.filter(b => b.outcome !== 'pending')
+                   : bets;
+    return [...filtered].sort((a, b) => {
+      const ea = matchById.get(a.matchId)?.endTime ?? '';
+      const eb = matchById.get(b.matchId)?.endTime ?? '';
+      return eb < ea ? -1 : eb > ea ? 1 : 0;
+    });
+  }, [bets, filter, matchById]);
 
   if (isLoading) return null;
 
@@ -86,6 +101,13 @@ export default function MyBetsPage() {
       <div className="bstats">
         <div className="bstat"><div className="bn">{counts.placed}</div><div className="bl">Placed</div></div>
         <div className="bstat"><div className="bn" style={{ color: 'var(--off)' }}>{counts.pending}</div><div className="bl">Pending</div></div>
+        <div className="bstat"><div className="bn" style={{ color: 'var(--gold)' }}>{counts.completed}</div><div className="bl">Completed</div></div>
+      </div>
+
+      <div className="phase-tabs">
+        <button className={`ptab${filter === 'all'       ? ' on' : ''}`} onClick={() => setFilter('all')}>All</button>
+        <button className={`ptab${filter === 'pending'   ? ' on' : ''}`} onClick={() => setFilter('pending')}>Pending</button>
+        <button className={`ptab${filter === 'completed' ? ' on' : ''}`} onClick={() => setFilter('completed')}>Completed</button>
       </div>
 
       {loaded && bets.length === 0 ? (
@@ -96,7 +118,7 @@ export default function MyBetsPage() {
         </div>
       ) : (
         <div className="bets-list">
-          {[...bets].reverse().map(b => {
+          {visibleBets.map(b => {
             const m = matchById.get(b.matchId);
             const settled = b.outcome !== 'pending';
             const correct = m && settled ? qCorrect(b, m) : null;
