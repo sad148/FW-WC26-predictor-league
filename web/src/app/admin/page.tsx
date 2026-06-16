@@ -140,6 +140,7 @@ export default function AdminPage() {
     Record<number, GroupSettleDraft>
   >({});
   const [savingGroupId, setSavingGroupId] = useState<number | null>(null);
+  const [fixTab, setFixTab] = useState<'upcoming' | 'completed'>('upcoming');
   const [csvText, setCsvText] = useState("");
   const [csvPreview, setCsvPreview] = useState<
     { groupName: string; teams: string }[]
@@ -749,8 +750,13 @@ export default function AdminPage() {
             Zone.
           </p>
         ) : (
+          <>
+            <div className="phase-tabs" style={{ marginBottom: 12 }}>
+              <button className={`ptab${fixTab === 'upcoming' ? ' on' : ''}`} onClick={() => setFixTab('upcoming')}>Upcoming</button>
+              <button className={`ptab${fixTab === 'completed' ? ' on' : ''}`} onClick={() => setFixTab('completed')}>Completed</button>
+            </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(420px, 1fr))", gap: 8 }}>
-            {matches.map((m) => {
+            {matches.filter((m) => fixTab === 'completed' ? (m.scoreA !== null && m.scoreB !== null) : (m.scoreA === null || m.scoreB === null)).map((m) => {
               const d = draftFor(m);
               const cellInput = {
                 background: "rgba(255,255,255,.06)",
@@ -950,6 +956,7 @@ export default function AdminPage() {
               );
             })}
           </div>
+          </>
         )}
       </div>
 
