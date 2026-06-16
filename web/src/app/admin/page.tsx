@@ -755,7 +755,7 @@ export default function AdminPage() {
               <button className={`ptab${fixTab === 'upcoming' ? ' on' : ''}`} onClick={() => setFixTab('upcoming')}>Upcoming</button>
               <button className={`ptab${fixTab === 'completed' ? ' on' : ''}`} onClick={() => setFixTab('completed')}>Completed</button>
             </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(420px, 1fr))", gap: 8 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(min(420px, 100%), 1fr))", gap: 8 }}>
             {matches.filter((m) => fixTab === 'completed' ? (m.scoreA !== null && m.scoreB !== null) : (m.scoreA === null || m.scoreB === null)).map((m) => {
               const d = draftFor(m);
               const cellInput = {
@@ -768,6 +768,8 @@ export default function AdminPage() {
                 padding: "4px 8px",
                 borderRadius: 5,
                 textAlign: "center" as const,
+                boxSizing: "border-box" as const,
+                maxWidth: "100%",
               };
               const cellSelect = {
                 background: "rgba(255,255,255,.06)",
@@ -778,6 +780,8 @@ export default function AdminPage() {
                 padding: "5px 8px",
                 borderRadius: 5,
                 cursor: "pointer",
+                boxSizing: "border-box" as const,
+                maxWidth: "100%",
               };
               const subLabel = {
                 fontFamily: "var(--font-cond)",
@@ -793,6 +797,7 @@ export default function AdminPage() {
                     border: "1px solid var(--border)",
                     borderRadius: 8,
                     padding: "12px 14px",
+                    minWidth: 0,
                   }}
                 >
                   <div style={{ marginBottom: 10 }}>
@@ -818,14 +823,7 @@ export default function AdminPage() {
                   </div>
 
                   {/* Betting window — admin enters in their local tz; we convert to UTC on save. */}
-                  <div
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "1fr 1fr",
-                      gap: 10,
-                      marginBottom: 10,
-                    }}
-                  >
+                  <div className="admin-fix-times">
                     <div style={{ minWidth: 0 }}>
                       <div style={subLabel}>BETTING OPENS (your local tz)</div>
                       <input
@@ -862,15 +860,7 @@ export default function AdminPage() {
                     </div>
                   </div>
 
-                  <div
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns:
-                        "repeat(auto-fit, minmax(140px, 1fr))",
-                      gap: 10,
-                      alignItems: "end",
-                    }}
-                  >
+                  <div className="admin-fix-fields">
                     <div>
                       <div style={subLabel}>SCORE (Q1 + Q3)</div>
                       <div

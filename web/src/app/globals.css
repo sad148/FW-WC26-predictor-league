@@ -215,3 +215,11 @@ select option{background:#1e1e2e;color:var(--white);}
   .sc-nums{font-size:22px;}
   .hero-title{font-size:52px;}
 }
+
+/* ── ADMIN: fixture card inner grids ── */
+.admin-fix-times{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;}
+.admin-fix-fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;align-items:end;}
+@media(max-width:640px){
+  .admin-fix-times{grid-template-columns:1fr;}
+  .admin-fix-fields{grid-template-columns:1fr;}
+}
