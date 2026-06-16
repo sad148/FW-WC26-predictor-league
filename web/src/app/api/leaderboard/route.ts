@@ -12,7 +12,7 @@ import { ok, fail, handleError } from '@/lib/responses';
  *   triviaPts      = sum(question_answers.points_awarded)
  *   bracketPts     = sum(bracket_picks + group_picks pointsAwarded)
  *   bailoutPenalty = sum(bailout pointsDeducted)
- *   totalPts       = floor(wallet / 10) + triviaPts + bracketPts - bailoutPenalty
+ *   totalPts       = round(wallet / 10) + triviaPts + bracketPts - bailoutPenalty
  */
 export async function GET(req: NextRequest) {
   try {
@@ -51,7 +51,7 @@ export async function GET(req: NextRequest) {
         t.trivia_pts    AS "triviaPts",
         (b.bracket_pts + g.group_pts)::int AS "bracketPts",
         bo.points_deducted AS "bailoutPenalty",
-        ((m.wallet + bo.coins_awarded - fp.coins_deducted) / 10 + t.trivia_pts + b.bracket_pts + g.group_pts - bo.points_deducted)::int AS "totalPts"
+        (round((m.wallet + bo.coins_awarded - fp.coins_deducted) / 10.0) + t.trivia_pts + b.bracket_pts + g.group_pts - bo.points_deducted)::int AS "totalPts"
       FROM users u
       JOIN league_members lm ON lm.user_id = u.id AND lm.league_id = ${leagueId}
       LEFT JOIN LATERAL (
