@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { and, asc, eq } from 'drizzle-orm';
 import { db } from '@/db/client';
-import { bracketPicks, bracketEntries, bracketPhases } from '@/db/schema';
+import { bracketPicks, bracketEntries, bracketRoundWindows } from '@/db/schema';
 import { requireActiveLeague } from '@/lib/session';
 import { HttpError } from '@/lib/errors';
 import { ok, fail, handleError } from '@/lib/responses';
@@ -42,13 +42,16 @@ export async function POST(req: NextRequest) {
     if (entry.status === 'settled')  return fail('This bracket entry has already been settled.', 409);
     if (!entry.teams.includes(pick)) return fail('Pick must be one of the listed teams.');
 
-    const [window] = await db.select().from(bracketPhases).where(eq(bracketPhases.phase, 2));
+    if (!entry.round) return fail('This bracket entry has no round assigned.', 409);
+
+    const [window] = await db.select().from(bracketRoundWindows)
+      .where(eq(bracketRoundWindows.round, entry.round));
     const now = new Date();
     if (!window || !window.startTime || !window.endTime) {
-      return fail('This bracket phase is not open for picks yet.', 409);
+      return fail('This bracket round is not open for picks yet.', 409);
     }
-    if (now < window.startTime) return fail('This bracket phase hasn\'t opened yet.', 409);
-    if (now >= window.endTime)  return fail('This bracket phase is closed.', 409);
+    if (now < window.startTime) return fail('This bracket round hasn\'t opened yet.', 409);
+    if (now >= window.endTime)  return fail('This bracket round is closed.', 409);
 
     const [row] = await db.insert(bracketPicks).values({
       userId: session.userId!,

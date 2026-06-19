@@ -5,6 +5,7 @@ import {
   api,
   type BracketEntry,
   type BracketPhase,
+  type BracketRoundWindow,
   type GroupEntry,
   type LeagueSummary,
   type Match,
@@ -74,13 +75,20 @@ const PHASE_NAME: Record<number, string> = {
 };
 
 // Bracket Phase 2 (knockout) draft interfaces
+const KNOCKOUT_ROUNDS = ['r32', 'r16', 'qf', 'sf', 'final', 'third', 'champion'] as const;
+const KNOCKOUT_ROUND_LABEL: Record<string, string> = {
+  r32: 'R32', r16: 'R16', qf: 'QF', sf: 'SF', final: 'Final',
+  third: '3rd Place', champion: 'Champion',
+};
 interface NewBracketEntryDraft {
   label: string;
+  round: string;
   teamsRaw: string; // comma-separated team names
   sortOrder: string;
 }
 const EMPTY_BRACKET_ENTRY: NewBracketEntryDraft = {
   label: "",
+  round: "r32",
   teamsRaw: "",
   sortOrder: "0",
 };
@@ -133,6 +141,9 @@ export default function AdminPage() {
   const [savingBracketPhase, setSavingBracketPhase] = useState<number | null>(
     null,
   );
+  const [roundWindows, setRoundWindows] = useState<BracketRoundWindow[]>([]);
+  const [rwDrafts, setRwDrafts] = useState<Record<string, PhaseWindowDraft>>({});
+  const [savingRound, setSavingRound] = useState<string | null>(null);
 
   // Group standings (Phase 1) state
   const [groupEntries, setGroupEntries] = useState<GroupEntry[]>([]);
@@ -168,12 +179,14 @@ export default function AdminPage() {
 
   const loadBrackets = useCallback(async () => {
     try {
-      const [e, p] = await Promise.all([
+      const [e, p, rw] = await Promise.all([
         api.bracketEntries(),
         api.bracketPhases(),
+        api.bracketRoundWindows(),
       ]);
       setBracketEntries(e.entries);
       setBracketWindows(p.phases);
+      setRoundWindows(rw.windows);
     } catch (e) {
       toast("Error", (e as Error).message);
     }
@@ -503,14 +516,12 @@ export default function AdminPage() {
       .filter(Boolean);
     const sortOrder = parseInt(newBE.sortOrder, 10) || 0;
     if (!label) return toast("Missing fields", "Enter a label.");
-    if (teams.length < 2)
-      return toast(
-        "Missing teams",
-        "Enter at least 2 teams (comma-separated).",
-      );
+    // Teams can be empty for rounds that will be auto-populated after previous round settles.
+    if (teams.length === 1)
+      return toast("Missing teams", "Enter 2 teams or leave blank (auto-populated).");
     setAddingBE(true);
     try {
-      await api.addBracketEntry({ label, teams, sortOrder });
+      await api.addBracketEntry({ label, round: newBE.round, teams, sortOrder });
       toast("✓ Entry added", label);
       setNewBE(EMPTY_BRACKET_ENTRY);
       await loadBrackets();
@@ -556,6 +567,37 @@ export default function AdminPage() {
       toast("Error", (err as Error).message);
     } finally {
       setSavingBracketPhase(null);
+    }
+  }
+
+  function rwDraftFor(round: string): PhaseWindowDraft {
+    const w = roundWindows.find((r) => r.round === round);
+    return (
+      rwDrafts[round] ?? {
+        startTime: utcToLocalInput(w?.startTime),
+        endTime: utcToLocalInput(w?.endTime),
+      }
+    );
+  }
+  function setRwDraft(round: string, patch: Partial<PhaseWindowDraft>) {
+    setRwDrafts((d) => ({ ...d, [round]: { ...rwDraftFor(round), ...patch } }));
+  }
+  async function saveRoundWindow(round: string) {
+    const d = rwDraftFor(round);
+    setSavingRound(round);
+    try {
+      await api.setBracketRoundWindow({
+        round,
+        startTime: localInputToUtc(d.startTime),
+        endTime: localInputToUtc(d.endTime),
+      });
+      toast("✓ Saved", `${KNOCKOUT_ROUND_LABEL[round]} window updated.`);
+      await loadBrackets();
+      setRwDrafts((prev) => { const c = { ...prev }; delete c[round]; return c; });
+    } catch (err) {
+      toast("Error", (err as Error).message);
+    } finally {
+      setSavingRound(null);
     }
   }
 
@@ -1411,92 +1453,57 @@ export default function AdminPage() {
         <div className="lform-title" style={{ color: "var(--gold)" }}>
           BRACKET — SUBMISSION WINDOWS
         </div>
-        <p
-          style={{
-            color: "var(--off)",
-            fontSize: 13,
-            lineHeight: 1.6,
-            marginBottom: "1rem",
-          }}
-        >
-          Phase 1 (group standings) locks at opening kickoff. Phase 2 (knockout)
-          locks before first knockout match.
+        <p style={{ color: "var(--off)", fontSize: 13, lineHeight: 1.6, marginBottom: "1rem" }}>
+          Phase 1 (group standings) uses one window. Each knockout round has its own window — R32 closes before R32 matches, R16 opens after R32 settles, etc.
         </p>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: 8 }}>
-          {[1, 2].map((phase) => {
-            const d = bpwDraftFor(phase);
-            const subLabel = {
-              fontFamily: "var(--font-cond)",
-              fontSize: 11,
-              color: "var(--gold2)",
-              letterSpacing: ".5px",
-            };
-            const cellInput = {
-              background: "rgba(255,255,255,.06)",
-              border: "1px solid var(--border)",
-              color: "var(--white)",
-              fontFamily: "var(--font-cond)",
-              fontSize: 14,
-              padding: "4px 8px",
-              borderRadius: 5,
-            };
-            return (
-              <div
-                key={phase}
-                style={{
-                  background: "var(--card)",
-                  border: "1px solid var(--border)",
-                  borderRadius: 8,
-                  padding: "12px 14px",
-                }}
-              >
-                <div
-                  style={{
-                    fontFamily: "var(--font-cond)",
-                    fontSize: 14,
-                    fontWeight: 700,
-                    marginBottom: 10,
-                  }}
-                >
-                  {PHASE_NAME[phase]}
+
+        {/* Phase 1 window */}
+        {(() => {
+          const phase = 1;
+          const d = bpwDraftFor(phase);
+          const subLabel = { fontFamily: "var(--font-cond)", fontSize: 11, color: "var(--gold2)", letterSpacing: ".5px" };
+          const cellInput = { background: "rgba(255,255,255,.06)", border: "1px solid var(--border)", color: "var(--white)", fontFamily: "var(--font-cond)", fontSize: 14, padding: "4px 8px", borderRadius: 5 };
+          return (
+            <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8, padding: "12px 14px", marginBottom: 8 }}>
+              <div style={{ fontFamily: "var(--font-cond)", fontSize: 14, fontWeight: 700, marginBottom: 10 }}>{PHASE_NAME[phase]}</div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 10, alignItems: "end" }}>
+                <div>
+                  <div style={subLabel}>OPENS (your local tz)</div>
+                  <input type="datetime-local" value={d.startTime} onChange={(e) => setBpwDraft(phase, { startTime: e.target.value })} style={{ ...cellInput, width: "100%", marginTop: 3 }} />
                 </div>
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-                    gap: 10,
-                    alignItems: "end",
-                  }}
-                >
+                <div>
+                  <div style={subLabel}>CLOSES (your local tz)</div>
+                  <input type="datetime-local" value={d.endTime} onChange={(e) => setBpwDraft(phase, { endTime: e.target.value })} style={{ ...cellInput, width: "100%", marginTop: 3 }} />
+                </div>
+                <button className="wsubmit" style={{ marginLeft: 0 }} disabled={savingBracketPhase === phase} onClick={() => saveBracketPhaseWindow(phase)}>
+                  {savingBracketPhase === phase ? "Saving…" : "Save Window"}
+                </button>
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* Per-round knockout windows */}
+        <div style={{ marginTop: 12, marginBottom: 6, fontFamily: "var(--font-cond)", fontSize: 12, color: "var(--gold2)", letterSpacing: ".5px" }}>KNOCKOUT ROUND WINDOWS</div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 8 }}>
+          {(['r32', 'r16', 'qf', 'sf', 'final'] as const).map((round) => {
+            const d = rwDraftFor(round);
+            const subLabel = { fontFamily: "var(--font-cond)", fontSize: 11, color: "var(--gold2)", letterSpacing: ".5px" };
+            const cellInput = { background: "rgba(255,255,255,.06)", border: "1px solid var(--border)", color: "var(--white)", fontFamily: "var(--font-cond)", fontSize: 14, padding: "4px 8px", borderRadius: 5 };
+            return (
+              <div key={round} style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8, padding: "12px 14px" }}>
+                <div style={{ fontFamily: "var(--font-cond)", fontSize: 14, fontWeight: 700, marginBottom: 10 }}>{KNOCKOUT_ROUND_LABEL[round]}</div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 10, alignItems: "end" }}>
                   <div>
-                    <div style={subLabel}>OPENS (your local tz)</div>
-                    <input
-                      type="datetime-local"
-                      value={d.startTime}
-                      onChange={(e) =>
-                        setBpwDraft(phase, { startTime: e.target.value })
-                      }
-                      style={{ ...cellInput, width: "100%", marginTop: 3 }}
-                    />
+                    <div style={subLabel}>OPENS</div>
+                    <input type="datetime-local" value={d.startTime} onChange={(e) => setRwDraft(round, { startTime: e.target.value })} style={{ ...cellInput, width: "100%", marginTop: 3 }} />
                   </div>
                   <div>
-                    <div style={subLabel}>CLOSES (your local tz)</div>
-                    <input
-                      type="datetime-local"
-                      value={d.endTime}
-                      onChange={(e) =>
-                        setBpwDraft(phase, { endTime: e.target.value })
-                      }
-                      style={{ ...cellInput, width: "100%", marginTop: 3 }}
-                    />
+                    <div style={subLabel}>CLOSES</div>
+                    <input type="datetime-local" value={d.endTime} onChange={(e) => setRwDraft(round, { endTime: e.target.value })} style={{ ...cellInput, width: "100%", marginTop: 3 }} />
                   </div>
-                  <button
-                    className="wsubmit"
-                    style={{ marginLeft: 0 }}
-                    disabled={savingBracketPhase === phase}
-                    onClick={() => saveBracketPhaseWindow(phase)}
-                  >
-                    {savingBracketPhase === phase ? "Saving…" : "Save Window"}
+                  <button className="wsubmit" style={{ marginLeft: 0 }} disabled={savingRound === round} onClick={() => saveRoundWindow(round)}>
+                    {savingRound === round ? "Saving…" : "Save"}
                   </button>
                 </div>
               </div>
@@ -1758,140 +1765,73 @@ export default function AdminPage() {
             No knockout entries yet. Add one below.
           </p>
         ) : (
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 8 }}>
-            {bracketEntries.map((e) => {
-              const d = beDraftFor(e);
-              return (
-                <div
-                  key={e.id}
-                  style={{
-                    background: "var(--card)",
-                    border: "1px solid var(--border)",
-                    borderRadius: 8,
-                    padding: "12px 14px",
-                  }}
-                >
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      gap: 12,
-                      flexWrap: "wrap",
-                      marginBottom: 8,
-                    }}
-                  >
-                    <div>
-                      <div
-                        style={{
-                          fontFamily: "var(--font-cond)",
-                          fontSize: 14,
-                          fontWeight: 700,
-                        }}
-                      >
-                        {e.label}
-                      </div>
-                      <div
-                        style={{
-                          fontFamily: "var(--font-cond)",
-                          fontSize: 12,
-                          color: "var(--off)",
-                          marginTop: 2,
-                        }}
-                      >
-                        3 pts · teams: {e.teams.join(", ")}
-                      </div>
+          (() => {
+            const SETTLE_ROUND_ORDER = ['r32', 'r16', 'qf', 'sf', 'final', 'third', 'champion', ''];
+            const grouped: Record<string, BracketEntry[]> = {};
+            for (const e of bracketEntries) {
+              const key = e.round || '';
+              if (!grouped[key]) grouped[key] = [];
+              grouped[key].push(e);
+            }
+            return (
+              <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                {SETTLE_ROUND_ORDER.filter(r => grouped[r]?.length).map(round => (
+                  <div key={round}>
+                    <div style={{ fontFamily: "var(--font-cond)", fontSize: 11, color: "var(--gold2)", letterSpacing: ".5px", marginBottom: 8 }}>
+                      {round ? (KNOCKOUT_ROUND_LABEL[round] ?? round.toUpperCase()) : 'NO ROUND SET'}
+                      <span style={{ color: "var(--off)", marginLeft: 8, fontWeight: 400 }}>
+                        {grouped[round].filter(e => e.status === 'settled').length}/{grouped[round].length} settled
+                      </span>
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 8 }}>
+                      {grouped[round].sort((a, b) => a.sortOrder - b.sortOrder).map((e) => {
+                        const d = beDraftFor(e);
+                        return (
+                          <div key={e.id} style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8, padding: "12px 14px" }}>
+                            <div style={{ marginBottom: 8 }}>
+                              <div style={{ fontFamily: "var(--font-cond)", fontSize: 14, fontWeight: 700 }}>
+                                {e.label}
+                              </div>
+                              <div style={{ fontFamily: "var(--font-cond)", fontSize: 12, color: "var(--off)", marginTop: 2 }}>
+                                teams: {e.teams.length ? e.teams.join(" vs ") : "TBD"}
+                              </div>
+                            </div>
+                            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 8, alignItems: "end" }}>
+                              <div>
+                                <div style={{ fontFamily: "var(--font-cond)", fontSize: 11, color: "var(--gold2)", letterSpacing: ".5px", marginBottom: 3 }}>CORRECT TEAM</div>
+                                <select
+                                  value={d.correctPick}
+                                  onChange={(ev) => setBeDraft(e, { correctPick: ev.target.value })}
+                                  style={{ background: "rgba(255,255,255,.06)", border: "1px solid var(--border)", color: "var(--white)", fontFamily: "var(--font-cond)", fontSize: 13, padding: "5px 8px", borderRadius: 5, cursor: "pointer", width: "100%" }}
+                                >
+                                  <option value="">— not set —</option>
+                                  {e.teams.map((t) => <option key={t} value={t}>{t}</option>)}
+                                </select>
+                              </div>
+                              <div>
+                                <div style={{ fontFamily: "var(--font-cond)", fontSize: 11, color: "var(--gold2)", letterSpacing: ".5px", marginBottom: 3 }}>STATUS</div>
+                                <div style={{ fontFamily: "var(--font-cond)", fontSize: 13, fontWeight: 700, padding: "5px 0", color: e.status === "settled" ? "#2ecc71" : "var(--off)" }}>
+                                  {e.status === "settled" ? `✓ ${e.correctPick}` : "Awaiting result"}
+                                </div>
+                              </div>
+                              <button
+                                className="wsubmit"
+                                style={{ marginLeft: 0, alignSelf: "end" }}
+                                disabled={savingBEId === e.id}
+                                onClick={() => settleBracketEntry(e)}
+                              >
+                                {savingBEId === e.id ? "Saving…" : e.status === "settled" ? "Re-score" : "Settle & Score"}
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
-                  <div
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns:
-                        "repeat(auto-fit, minmax(160px, 1fr))",
-                      gap: 8,
-                      alignItems: "end",
-                    }}
-                  >
-                    <div>
-                      <div
-                        style={{
-                          fontFamily: "var(--font-cond)",
-                          fontSize: 11,
-                          color: "var(--gold2)",
-                          letterSpacing: ".5px",
-                          marginBottom: 3,
-                        }}
-                      >
-                        CORRECT TEAM
-                      </div>
-                      <select
-                        value={d.correctPick}
-                        onChange={(ev) =>
-                          setBeDraft(e, { correctPick: ev.target.value })
-                        }
-                        style={{
-                          background: "rgba(255,255,255,.06)",
-                          border: "1px solid var(--border)",
-                          color: "var(--white)",
-                          fontFamily: "var(--font-cond)",
-                          fontSize: 13,
-                          padding: "5px 8px",
-                          borderRadius: 5,
-                          cursor: "pointer",
-                          width: "100%",
-                        }}
-                      >
-                        <option value="">— not set —</option>
-                        {e.teams.map((t) => (
-                          <option key={t} value={t}>
-                            {t}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div>
-                      <div
-                        style={{
-                          fontFamily: "var(--font-cond)",
-                          fontSize: 11,
-                          color: "var(--gold2)",
-                          letterSpacing: ".5px",
-                          marginBottom: 3,
-                        }}
-                      >
-                        STATUS
-                      </div>
-                      <div
-                        style={{
-                          fontFamily: "var(--font-cond)",
-                          fontSize: 13,
-                          fontWeight: 700,
-                          padding: "5px 0",
-                          color:
-                            e.status === "settled" ? "#2ecc71" : "var(--off)",
-                        }}
-                      >
-                        {e.status === "settled"
-                          ? `✓ Settled — ${e.correctPick}`
-                          : "Awaiting result"}
-                      </div>
-                    </div>
-                    <button
-                      className="wsubmit"
-                      style={{ marginLeft: 0, alignSelf: "end" }}
-                      disabled={savingBEId === e.id}
-                      onClick={() => settleBracketEntry(e)}
-                    >
-                      {savingBEId === e.id
-                        ? "Saving…"
-                        : e.status === "settled"
-                          ? "Re-score"
-                          : "Settle & Score"}
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+                ))}
+              </div>
+            );
+          })()
         )}
       </div>
 
@@ -1901,16 +1841,29 @@ export default function AdminPage() {
           KNOCKOUT (PHASE 2) — ADD ENTRY
         </div>
         <div className="fg">
+          <label className="flabel">Round</label>
+          <select
+            className="finput"
+            value={newBE.round}
+            onChange={(e) => setNewBE({ ...newBE, round: e.target.value })}
+            style={{ background: 'var(--card)', color: 'var(--white)', cursor: 'pointer' }}
+          >
+            {KNOCKOUT_ROUNDS.map(r => (
+              <option key={r} value={r}>{KNOCKOUT_ROUND_LABEL[r]}</option>
+            ))}
+          </select>
+        </div>
+        <div className="fg">
           <label className="flabel">Label</label>
           <input
             className="finput"
-            placeholder="e.g. R16 Match 1 Winner"
+            placeholder="e.g. Match 1"
             value={newBE.label}
             onChange={(e) => setNewBE({ ...newBE, label: e.target.value })}
           />
         </div>
         <div className="fg">
-          <label className="flabel">Sort Order</label>
+          <label className="flabel">Sort Order (within round, 0-based)</label>
           <input
             className="finput"
             type="number"
@@ -1920,7 +1873,7 @@ export default function AdminPage() {
           />
         </div>
         <div className="fg">
-          <label className="flabel">Teams (comma-separated)</label>
+          <label className="flabel">Teams (comma-separated, leave blank for auto-populate)</label>
           <input
             className="finput"
             placeholder="e.g. Brazil, Argentina"

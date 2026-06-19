@@ -145,10 +145,17 @@ export interface GroupPick {
 export interface BracketEntry {
   id: number;
   label: string;
+  round: string;
   teams: string[];
   correctPick: string | null;
   status: "open" | "settled";
   sortOrder: number;
+}
+
+export interface BracketRoundWindow {
+  round: string;
+  startTime: string | null;
+  endTime: string | null;
 }
 
 export interface BracketPhase {
@@ -309,6 +316,7 @@ export const api = {
     request<{ entries: BracketEntry[] }>("/api/bracket-entries"),
   addBracketEntry: (b: {
     label: string;
+    round: string;
     teams: string[];
     sortOrder?: number;
   }) =>
@@ -320,6 +328,7 @@ export const api = {
     id: number,
     b: Partial<{
       label: string;
+      round: string;
       teams: string[];
       sortOrder: number;
       correctPick: string | null;
@@ -345,6 +354,17 @@ export const api = {
   saveBracketPick: (b: { entryId: number; pick: string }) =>
     request<{ pick: BracketPick }>("/api/bracket-picks", {
       method: "POST",
+      body: JSON.stringify(b),
+    }),
+  bracketRoundWindows: () =>
+    request<{ windows: BracketRoundWindow[] }>("/api/bracket-round-windows"),
+  setBracketRoundWindow: (b: {
+    round: string;
+    startTime: string | null;
+    endTime: string | null;
+  }) =>
+    request<{ window: BracketRoundWindow }>("/api/bracket-round-windows", {
+      method: "PUT",
       body: JSON.stringify(b),
     }),
 

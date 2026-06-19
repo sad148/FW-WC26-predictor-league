@@ -27,11 +27,12 @@ export async function POST(req: NextRequest) {
       : [];
     const sortOrder = Number.isInteger(Number(body.sortOrder)) ? Number(body.sortOrder) : 0;
 
-    if (!label)             return fail('Label is required.');
-    if (teams.length < 2)   return fail('At least 2 teams are required.');
+    if (!label) return fail('Label is required.');
+
+    const round = String(body.round || '').trim();
 
     const [row] = await db.insert(bracketEntries).values({
-      label, teams, sortOrder,
+      label, round, teams, sortOrder,
     }).returning();
     return ok({ entry: row }, 201);
   } catch (err) {

@@ -1,16 +1,23 @@
 import { NextRequest } from "next/server";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { db } from "@/db/client";
 import { bracketEntries, bracketPicks } from "@/db/schema";
 import { requireAdmin } from "@/lib/session";
 import { ok, fail, handleError } from "@/lib/responses";
 
-const BRACKET_UNIT_VALUE = 3; // PRD §3 C: flat 3 pts per correct pick
+const BRACKET_UNIT_VALUE = 3;
+
+const NEXT_ROUND: Record<string, string> = {
+  r32: "r16",
+  r16: "qf",
+  qf: "sf",
+  sf: "final",
+};
 
 /**
  * PATCH /api/bracket-entries/[id] — admin updates a bracket entry.
- * If status flips to 'settled' AND correctPick is set, all pending picks
- * are graded: case-insensitive trim compare → win awards 3 pts.
+ * On settlement: scores all pending picks, then auto-progresses the winner
+ * into the next round's entry (if the sibling entry is also settled).
  */
 export async function PATCH(
   req: NextRequest,
@@ -27,6 +34,7 @@ export async function PATCH(
 
     const updates: Partial<typeof bracketEntries.$inferInsert> = {};
     if (has("label")) updates.label = String(body.label);
+    if (has("round")) updates.round = String(body.round);
     if (has("teams"))
       updates.teams = Array.isArray(body.teams)
         ? body.teams.map((t: unknown) => String(t).trim()).filter(Boolean)
@@ -46,6 +54,7 @@ export async function PATCH(
       .returning();
     if (!row) return fail("Bracket entry not found.", 404);
 
+    // ── Score picks ────────────────────────────────────────────────────
     let settled = 0;
     if (row.status === "settled" && row.correctPick) {
       const expected = row.correctPick.trim().toLowerCase();
@@ -66,7 +75,51 @@ export async function PATCH(
       }
     }
 
-    return ok({ entry: row, settled });
+    // ── Auto-progression ───────────────────────────────────────────────
+    // If this entry is now settled and has a next round, find its sibling.
+    // If the sibling is also settled, push both winners into the next-round entry's teams.
+    let progressed = false;
+    if (row.status === "settled" && row.correctPick && row.round && NEXT_ROUND[row.round]) {
+      const nextRound = NEXT_ROUND[row.round];
+      const siblingOrder = row.sortOrder % 2 === 0 ? row.sortOrder + 1 : row.sortOrder - 1;
+
+      const [sibling] = await db
+        .select()
+        .from(bracketEntries)
+        .where(
+          and(
+            eq(bracketEntries.round, row.round),
+            eq(bracketEntries.sortOrder, siblingOrder),
+          ),
+        );
+
+      if (sibling?.status === "settled" && sibling.correctPick) {
+        const nextSortOrder = Math.floor(row.sortOrder / 2);
+        const isUpper = row.sortOrder % 2 === 0;
+        const teamA = isUpper ? row.correctPick : sibling.correctPick;
+        const teamB = isUpper ? sibling.correctPick : row.correctPick;
+
+        const [nextEntry] = await db
+          .select()
+          .from(bracketEntries)
+          .where(
+            and(
+              eq(bracketEntries.round, nextRound),
+              eq(bracketEntries.sortOrder, nextSortOrder),
+            ),
+          );
+
+        if (nextEntry) {
+          await db
+            .update(bracketEntries)
+            .set({ teams: [teamA, teamB] })
+            .where(eq(bracketEntries.id, nextEntry.id));
+          progressed = true;
+        }
+      }
+    }
+
+    return ok({ entry: row, settled, progressed });
   } catch (err) {
     return handleError(err);
   }

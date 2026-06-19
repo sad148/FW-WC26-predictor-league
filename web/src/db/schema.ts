@@ -121,15 +121,24 @@ export const groupPicks = pgTable('group_picks', {
 export const bracketEntries = pgTable('bracket_entries', {
   id:          serial('id').primaryKey(),
   label:       text('label').notNull(),
+  round:       text('round').notNull().default(''),
+  // 'r32' | 'r16' | 'qf' | 'sf' | 'final' | 'third' | 'champion'
   teams:       jsonb('teams').$type<string[]>().notNull(),
   correctPick: text('correct_pick'),
   status:      text('status').notNull().default('open'),
   sortOrder:   integer('sort_order').notNull().default(0),
 });
 
-// bracket_phases — single submission window per phase.
+// bracket_phases — single submission window per phase (phase 1 = group standings).
 export const bracketPhases = pgTable('bracket_phases', {
   phase:     integer('phase').primaryKey(),
+  startTime: timestamp('start_time', { withTimezone: true }),
+  endTime:   timestamp('end_time',   { withTimezone: true }),
+});
+
+// bracket_round_windows — per-round submission windows for knockout tree.
+export const bracketRoundWindows = pgTable('bracket_round_windows', {
+  round:     text('round').primaryKey(),
   startTime: timestamp('start_time', { withTimezone: true }),
   endTime:   timestamp('end_time',   { withTimezone: true }),
 });
