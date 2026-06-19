@@ -168,6 +168,15 @@ export default function TriviaPage() {
                               onChange={(e) => setDrafts(d => ({ ...d, [q.id]: e.target.value }))}
                             />
                           </div>
+                        ) : q.questionType === 'free-text-multi' ? (
+                          <input
+                            className="finput"
+                            type="text"
+                            placeholder="Type your answer…"
+                            value={draft}
+                            disabled={!canEdit}
+                            onChange={(e) => setDrafts(d => ({ ...d, [q.id]: e.target.value }))}
+                          />
                         ) : q.options
                           ? <div className="prow">
                               <div className="popts" style={{ marginLeft: 0 }}>
@@ -223,7 +232,10 @@ export default function TriviaPage() {
                           borderTop: '1px solid var(--border)', padding: '8px 14px',
                           fontFamily: 'var(--font-cond)', fontSize: 12, color: 'var(--off)',
                         }}>
-                          Correct answer: <strong style={{ color: 'var(--mex2)' }}>{q.winningAnswer}</strong>
+                          {q.questionType === 'free-text-multi'
+                            ? <>Accepted answers: <strong style={{ color: 'var(--mex2)' }}>{q.winningAnswer.split(',').map(v => v.trim()).join(' · ')}</strong></>
+                            : <>Correct answer: <strong style={{ color: 'var(--mex2)' }}>{q.winningAnswer}</strong></>
+                          }
                         </div>
                       )}
                     </div>

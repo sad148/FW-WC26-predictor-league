@@ -19,7 +19,7 @@ export async function GET() {
   }
 }
 
-const VALID_TYPES = ['option-buttons', 'free-text', 'comma-teams'];
+const VALID_TYPES = ['option-buttons', 'free-text', 'comma-teams', 'free-text-multi'];
 
 /** POST /api/questions — admin creates a question. */
 export async function POST(req: NextRequest) {

@@ -8,7 +8,7 @@ import { ok, fail, handleError } from '@/lib/responses';
 const parseOpts  = (raw: string | null) => raw ? raw.split('|') : null;
 const serializeOpts = (v: unknown) =>
   Array.isArray(v) && v.length > 0 ? v.map(String).filter(Boolean).join('|') : null;
-const VALID_TYPES = ['option-buttons', 'free-text', 'comma-teams'];
+const VALID_TYPES = ['option-buttons', 'free-text', 'comma-teams', 'free-text-multi'];
 
 // For comma-teams: split by comma, trim, lowercase, sort — order-insensitive comparison.
 const normalizeCommaTeams = (s: string) =>
@@ -47,17 +47,28 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
 
     let settled = 0;
     if (row.status === 'settled' && row.winningAnswer) {
-      const isCommaTeams = row.questionType === 'comma-teams';
+      const isCommaTeams  = row.questionType === 'comma-teams';
+      const isMultiAnswer = row.questionType === 'free-text-multi';
+
+      // For free-text-multi, winningAnswer is comma-separated accepted values.
+      const acceptedSet = isMultiAnswer
+        ? new Set(row.winningAnswer.split(',').map(v => v.trim().toLowerCase()).filter(Boolean))
+        : null;
+
       const expected = isCommaTeams
         ? normalizeCommaTeams(row.winningAnswer)
         : row.winningAnswer.trim().toLowerCase();
 
       const all = await db.select().from(questionAnswers).where(eq(questionAnswers.questionId, qid));
       for (const a of all) {
-        const actual  = isCommaTeams
-          ? normalizeCommaTeams(a.answer)
-          : a.answer.trim().toLowerCase();
-        const correct = actual === expected;
+        let correct: boolean;
+        if (isMultiAnswer) {
+          correct = acceptedSet!.has(a.answer.trim().toLowerCase());
+        } else if (isCommaTeams) {
+          correct = normalizeCommaTeams(a.answer) === expected;
+        } else {
+          correct = a.answer.trim().toLowerCase() === expected;
+        }
         await db.update(questionAnswers).set({
           outcome:       correct ? 'win' : 'loss',
           pointsAwarded: correct ? row.pointValue : 0,

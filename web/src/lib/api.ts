@@ -102,7 +102,7 @@ export interface Question {
   phase: number;
   text: string;
   options: string[] | null;
-  questionType: "option-buttons" | "free-text" | "comma-teams";
+  questionType: "option-buttons" | "free-text" | "comma-teams" | "free-text-multi";
   maxSelections: number | null;
   pointValue: number;
   winningAnswer: string | null;

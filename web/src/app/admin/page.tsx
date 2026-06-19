@@ -1409,6 +1409,7 @@ export default function AdminPage() {
             <option value="option-buttons">Option Buttons (radio-style)</option>
             <option value="comma-teams">Comma-separated Teams</option>
             <option value="free-text">Free Text</option>
+            <option value="free-text-multi">Free Text – Multiple Correct Answers</option>
           </select>
         </div>
         {newQ.questionType === "option-buttons" && (
