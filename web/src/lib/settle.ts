@@ -57,10 +57,11 @@ export function evaluateBet(
 }
 
 /**
- * Settles all pending bets for a match.
+ * Settles (or re-settles) all bets for a match.
  * Returns 0 and does nothing if firstScorer or totalCards is not yet entered —
  * every subsequent PATCH to the fixture will retry, so the last admin input
  * (whichever of firstScorer / totalCards is entered last) triggers final settlement.
+ * Re-evaluates already-settled bets so that admin corrections propagate.
  */
 export async function settlePendingBets(matchId: number, scoreA: number, scoreB: number): Promise<number> {
   const [match] = await db.select().from(fixtures).where(eq(fixtures.id, matchId));
@@ -69,19 +70,19 @@ export async function settlePendingBets(matchId: number, scoreA: number, scoreB:
 
   if (firstScorer === null || totalCards === null) return 0;
 
-  const pending = await db
+  const allBets = await db
     .select()
     .from(bets)
-    .where(and(eq(bets.matchId, matchId), eq(bets.outcome, 'pending')));
+    .where(eq(bets.matchId, matchId));
 
-  for (const b of pending) {
+  for (const b of allBets) {
     const { outcome, pointsAwarded } = evaluateBet(b, scoreA, scoreB, firstScorer, totalCards, b.wager);
     await db.update(bets).set({ outcome, pointsAwarded }).where(eq(bets.id, b.id));
   }
 
   await applyMissedBetPenalties(matchId);
 
-  return pending.length;
+  return allBets.length;
 }
 
 /**
