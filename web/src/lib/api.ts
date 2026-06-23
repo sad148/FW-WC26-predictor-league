@@ -112,6 +112,7 @@ export interface Question {
 
 export interface PhaseWindow {
   phase: number;
+  name: string;
   startTime: string | null;
   endTime: string | null;
 }
@@ -275,8 +276,14 @@ export const api = {
     }),
   questionPhases: () =>
     request<{ phases: PhaseWindow[] }>("/api/question-phases"),
+  createQuestionPhase: (b: { name: string }) =>
+    request<{ phase: PhaseWindow }>("/api/question-phases", {
+      method: "POST",
+      body: JSON.stringify(b),
+    }),
   setQuestionPhase: (b: {
     phase: number;
+    name?: string;
     startTime: string | null;
     endTime: string | null;
   }) =>

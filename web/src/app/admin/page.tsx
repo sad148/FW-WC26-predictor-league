@@ -45,7 +45,7 @@ const EMPTY_FIXTURE: FixtureDraft = {
 
 interface NewQuestionDraft {
   text: string;
-  phase: 1 | 2;
+  phase: number;
   pointValue: string;
   questionType: string;
   optionsRaw: string;
@@ -54,7 +54,7 @@ interface NewQuestionDraft {
 
 const EMPTY_QUESTION: NewQuestionDraft = {
   text: "",
-  phase: 1,
+  phase: 0,
   pointValue: "5",
   questionType: "option-buttons",
   optionsRaw: "",
@@ -69,10 +69,6 @@ interface PhaseWindowDraft {
   endTime: string;
 } // local-tz datetime-local strings
 
-const PHASE_NAME: Record<number, string> = {
-  1: "Phase 1 · Group Stage",
-  2: "Phase 2 · Knockout",
-};
 
 // Bracket Phase 2 (knockout) draft interfaces
 const KNOCKOUT_ROUNDS = ['r32', 'r16', 'qf', 'sf', 'final', 'third', 'champion'] as const;
@@ -121,10 +117,10 @@ export default function AdminPage() {
   const [qDrafts, setQDrafts] = useState<Record<number, QuestionDraft>>({});
   const [savingQId, setSavingQId] = useState<number | null>(null);
   const [phaseWindows, setPhaseWindows] = useState<PhaseWindow[]>([]);
-  const [pwDrafts, setPwDrafts] = useState<Record<number, PhaseWindowDraft>>(
-    {},
-  );
+  const [pwDrafts, setPwDrafts] = useState<Record<number, PhaseWindowDraft>>({});
   const [savingPhase, setSavingPhase] = useState<number | null>(null);
+  const [newPhaseName, setNewPhaseName] = useState("");
+  const [addingPhase, setAddingPhase] = useState(false);
 
   // Bracket Phase 2 (knockout) state
   const [bracketEntries, setBracketEntries] = useState<BracketEntry[]>([]);
@@ -294,6 +290,22 @@ export default function AdminPage() {
     }
   }
 
+  async function createPhase() {
+    const name = newPhaseName.trim();
+    if (!name) return toast("Missing field", "Enter a phase name.");
+    setAddingPhase(true);
+    try {
+      await api.createQuestionPhase({ name });
+      toast("✓ Phase created", name);
+      setNewPhaseName("");
+      await loadQuestions();
+    } catch (e) {
+      toast("Error", (e as Error).message);
+    } finally {
+      setAddingPhase(false);
+    }
+  }
+
   async function addQuestion() {
     const text   = newQ.text.trim();
     const opts   = newQ.questionType === 'option-buttons'
@@ -302,6 +314,7 @@ export default function AdminPage() {
     const pts    = parseInt(newQ.pointValue, 10);
     const maxSel = newQ.maxSelectionsRaw ? parseInt(newQ.maxSelectionsRaw, 10) : null;
     if (!text) return toast("Missing fields", "Enter question text.");
+    if (!newQ.phase) return toast("Missing fields", "Select a phase.");
     if (!Number.isInteger(pts) || pts < 1)
       return toast("Invalid points", "Point value must be a positive integer.");
     if (newQ.questionType === 'option-buttons' && opts.length === 0)
@@ -392,7 +405,8 @@ export default function AdminPage() {
         startTime: localInputToUtc(d.startTime),
         endTime: localInputToUtc(d.endTime),
       });
-      toast("✓ Saved", `${PHASE_NAME[phase]} window updated.`);
+      const phaseName = phaseWindows.find(p => p.phase === phase)?.name ?? `Phase ${phase}`;
+      toast("✓ Saved", `${phaseName} window updated.`);
       await loadQuestions();
       setPwDrafts((prev) => {
         const c = { ...prev };
@@ -556,7 +570,7 @@ export default function AdminPage() {
         startTime: localInputToUtc(d.startTime),
         endTime: localInputToUtc(d.endTime),
       });
-      toast("✓ Saved", `${PHASE_NAME[phase]} bracket window updated.`);
+      toast("✓ Saved", `Phase ${phase} bracket window updated.`);
       await loadBrackets();
       setBpwDrafts((prev) => {
         const c = { ...prev };
@@ -1100,8 +1114,36 @@ export default function AdminPage() {
           Players can answer a phase's questions only while now is inside its
           window. Enter times in your local timezone; stored as UTC.
         </p>
+
+        {/* Create new phase */}
+        <div style={{ display: "flex", gap: 8, alignItems: "flex-end", marginBottom: "1rem", flexWrap: "wrap" }}>
+          <div className="fg" style={{ flex: 1, minWidth: 180, marginBottom: 0 }}>
+            <label className="flabel">New Phase Name</label>
+            <input
+              className="finput"
+              placeholder="e.g. Group Stage, R32, QF…"
+              value={newPhaseName}
+              onChange={(e) => setNewPhaseName(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") createPhase(); }}
+            />
+          </div>
+          <button
+            className="wsubmit"
+            style={{ marginLeft: 0, whiteSpace: "nowrap" }}
+            disabled={addingPhase}
+            onClick={createPhase}
+          >
+            {addingPhase ? "Adding…" : "+ Create Phase"}
+          </button>
+        </div>
+
+        {phaseWindows.length === 0 && (
+          <p style={{ color: "var(--off)", fontSize: 13, marginBottom: "1rem" }}>
+            No phases yet. Create one above.
+          </p>
+        )}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: 8 }}>
-          {[1, 2].map((phase) => {
+          {phaseWindows.map(({ phase, name: phaseName }) => {
             const d = pwDraftFor(phase);
             const subLabel = {
               fontFamily: "var(--font-cond)",
@@ -1136,7 +1178,7 @@ export default function AdminPage() {
                     marginBottom: 10,
                   }}
                 >
-                  {PHASE_NAME[phase]}
+                  {phaseName || `Phase ${phase}`}
                 </div>
                 <div
                   style={{
@@ -1378,13 +1420,17 @@ export default function AdminPage() {
             <select
               className="finput"
               style={{ cursor: "pointer" }}
-              value={newQ.phase}
+              value={newQ.phase || ""}
               onChange={(e) =>
-                setNewQ({ ...newQ, phase: Number(e.target.value) as 1 | 2 })
+                setNewQ({ ...newQ, phase: Number(e.target.value) })
               }
             >
-              <option value={1}>Phase 1 (Group Stage)</option>
-              <option value={2}>Phase 2 (Knockout)</option>
+              <option value="">— select phase —</option>
+              {phaseWindows.map(pw => (
+                <option key={pw.phase} value={pw.phase}>
+                  Phase {pw.phase} · {pw.name || "(unnamed)"}
+                </option>
+              ))}
             </select>
           </div>
           <div className="fg">
@@ -1466,7 +1512,7 @@ export default function AdminPage() {
           const cellInput = { background: "rgba(255,255,255,.06)", border: "1px solid var(--border)", color: "var(--white)", fontFamily: "var(--font-cond)", fontSize: 14, padding: "4px 8px", borderRadius: 5 };
           return (
             <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8, padding: "12px 14px", marginBottom: 8 }}>
-              <div style={{ fontFamily: "var(--font-cond)", fontSize: 14, fontWeight: 700, marginBottom: 10 }}>{PHASE_NAME[phase]}</div>
+              <div style={{ fontFamily: "var(--font-cond)", fontSize: 14, fontWeight: 700, marginBottom: 10 }}>Phase {phase} · Group Stage</div>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 10, alignItems: "end" }}>
                 <div>
                   <div style={subLabel}>OPENS (your local tz)</div>

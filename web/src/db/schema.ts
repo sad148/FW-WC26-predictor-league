@@ -78,6 +78,7 @@ export const questions = pgTable('questions', {
 // question_phases — single answer window per phase.
 export const questionPhases = pgTable('question_phases', {
   phase:     integer('phase').primaryKey(),
+  name:      text('name').notNull().default(''),
   startTime: timestamp('start_time', { withTimezone: true }),
   endTime:   timestamp('end_time',   { withTimezone: true }),
 });

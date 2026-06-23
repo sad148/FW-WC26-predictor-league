@@ -6,7 +6,6 @@ import { api, type Answer, type PhaseWindow, type Question } from '@/lib/api';
 import { formatLocal, windowState, WINDOW_STATE_LABEL, type WindowState } from '@/lib/time';
 import { useAuth, useToast } from '../providers';
 
-const PHASE_LABEL: Record<number, string> = { 1: 'PHASE 1 · GROUP STAGE', 2: 'PHASE 2 · KNOCKOUT' };
 
 // Per-question badge: a settled question always shows "settled"; otherwise it inherits
 // its phase's window state (open/closed/scheduled), since open/close is now phase-level.
@@ -51,14 +50,8 @@ export default function TriviaPage() {
     return m;
   }, [answers]);
 
-  const windowByPhase = useMemo(() => {
-    const m = new Map<number, PhaseWindow>();
-    windows.forEach(w => m.set(w.phase, w));
-    return m;
-  }, [windows]);
-
   const phases = useMemo(() => {
-    const grouped: Record<number, Question[]> = { 1: [], 2: [] };
+    const grouped: Record<number, Question[]> = {};
     questions.forEach(q => { (grouped[q.phase] ||= []).push(q); });
     return grouped;
   }, [questions]);
@@ -102,14 +95,15 @@ export default function TriviaPage() {
         </div>
       )}
 
-      {[1, 2].map(phase => {
-        const win   = windowByPhase.get(phase) ?? null;
+      {windows.map(win => {
+        const phase = win.phase;
         const state = windowState(win?.startTime ?? null, win?.endTime ?? null, now);
         const phaseOpen = state === 'open';
+        const label = win.name ? win.name.toUpperCase() : `PHASE ${phase}`;
         return (
           <div key={phase}>
             <div className="sh" style={{ paddingTop: '1.25rem', display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
-              <div className="sh-title" style={{ fontSize: 22 }}>{PHASE_LABEL[phase]}</div>
+              <div className="sh-title" style={{ fontSize: 22 }}>{label}</div>
               <span className={`st ${WINDOW_CLS[state]}`}>{WINDOW_STATE_LABEL[state]}</span>
             </div>
 
