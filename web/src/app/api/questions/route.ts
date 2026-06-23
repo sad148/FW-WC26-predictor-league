@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
       ? Number(body.maxSelections) : null;
 
     if (!text)                                    return fail('Question text is required.');
-    if (phase !== 1 && phase !== 2)               return fail('Phase must be 1 (group) or 2 (knockout).');
+    if (!Number.isInteger(phase) || phase < 1)     return fail('Phase must be a positive integer.');
     if (!Number.isInteger(points) || points < 1)  return fail('Point value must be a positive integer.');
 
     const [row] = await db.insert(questions).values({
