@@ -4,6 +4,36 @@ import { useEffect, useState } from "react";
 import { api, type LeaderboardRow } from "@/lib/api";
 import { useAuth } from "../providers";
 
+type RankDelta = "up" | "down" | "same" | "new";
+
+function storageKey(leagueId: number | null) {
+  return `lb_prev_ranks_${leagueId ?? "all"}`;
+}
+
+function loadPrev(leagueId: number | null): Record<string, number> {
+  try {
+    const raw = localStorage.getItem(storageKey(leagueId));
+    return raw ? JSON.parse(raw) : {};
+  } catch { return {}; }
+}
+
+function savePrev(leagueId: number | null, ranks: Record<string, number>) {
+  try { localStorage.setItem(storageKey(leagueId), JSON.stringify(ranks)); } catch { /* ignore */ }
+}
+
+function computeDeltas(rows: LeaderboardRow[], prev: Record<string, number>): Record<string, RankDelta> {
+  const out: Record<string, RankDelta> = {};
+  rows.forEach((r, i) => {
+    const cur = i + 1;
+    const old = prev[r.playerId];
+    if (old === undefined) out[r.playerId] = "new";
+    else if (cur < old)    out[r.playerId] = "up";
+    else if (cur > old)    out[r.playerId] = "down";
+    else                   out[r.playerId] = "same";
+  });
+  return out;
+}
+
 const AV_COLORS = [
   "#4A90D9",
   "#E61D25",
@@ -33,15 +63,22 @@ function colorFor(name: string) {
 }
 
 export default function LeaderboardPage() {
-  const { user } = useAuth();
+  const { user, activeLeagueId } = useAuth();
   const [rows, setRows] = useState<LeaderboardRow[]>([]);
+  const [deltas, setDeltas] = useState<Record<string, RankDelta>>({});
+  const leagueId = activeLeagueId;
 
   useEffect(() => {
-    api
-      .leaderboard()
-      .then((r) => setRows(r.leaderboard))
-      .catch(() => {});
-  }, []);
+    api.leaderboard().then((r) => {
+      const current = r.leaderboard;
+      const prev = loadPrev(leagueId);
+      setDeltas(computeDeltas(current, prev));
+      const next: Record<string, number> = {};
+      current.forEach((row, i) => { next[row.playerId] = i + 1; });
+      savePrev(leagueId, next);
+      setRows(current);
+    }).catch(() => {});
+  }, [leagueId]);
 
   return (
     <section>
@@ -85,6 +122,12 @@ export default function LeaderboardPage() {
                   <tr key={p.playerId} className={isMe ? "me-row" : ""}>
                     <td>
                       <span className={`rank ${rc}`}>{i + 1}</span>
+                      {deltas[p.playerId] === "up" && (
+                        <span style={{ fontSize: 10, color: "#2ecc71", marginLeft: 3, verticalAlign: "middle" }}>▲</span>
+                      )}
+                      {deltas[p.playerId] === "down" && (
+                        <span style={{ fontSize: 10, color: "var(--can2)", marginLeft: 3, verticalAlign: "middle" }}>▼</span>
+                      )}
                     </td>
                     <td>
                       <div className="p-row">
