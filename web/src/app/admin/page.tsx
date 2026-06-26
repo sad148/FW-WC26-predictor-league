@@ -160,6 +160,9 @@ export default function AdminPage() {
   const [resetPwd, setResetPwd] = useState("");
   const [resetting, setResetting] = useState(false);
 
+  // Tab state
+  const [adminTab, setAdminTab] = useState<'bets' | 'trivia' | 'brackets' | 'admin'>('bets');
+
   const loadFixtures = useCallback(async () => {
     try {
       const r = await api.fixtures();
@@ -762,6 +765,15 @@ export default function AdminPage() {
         <div className="sh-sub">League + testing utilities</div>
       </div>
 
+      {/* ─── Tab bar ─── */}
+      <div className="phase-tabs" style={{ marginBottom: "1.5rem" }}>
+        <button className={`ptab${adminTab === 'bets' ? ' on' : ''}`} onClick={() => setAdminTab('bets')}>Bets</button>
+        <button className={`ptab${adminTab === 'trivia' ? ' on' : ''}`} onClick={() => setAdminTab('trivia')}>Trivia</button>
+        <button className={`ptab${adminTab === 'brackets' ? ' on' : ''}`} onClick={() => setAdminTab('brackets')}>Brackets</button>
+        <button className={`ptab${adminTab === 'admin' ? ' on' : ''}`} onClick={() => setAdminTab('admin')}>Admin</button>
+      </div>
+
+      {adminTab === 'admin' && <>
       <div className="lform" style={{ marginBottom: "1.5rem" }}>
         <div className="lform-title" style={{ color: "var(--gold)" }}>
           LEAGUES
@@ -824,7 +836,9 @@ export default function AdminPage() {
           Create League →
         </button>
       </div>
+      </>}
 
+      {adminTab === 'bets' && <>
       <div
         className="lform"
         style={{ marginBottom: "1.5rem", maxWidth: "none" }}
@@ -1125,7 +1139,9 @@ export default function AdminPage() {
           {addingFix ? "Adding…" : "Add Fixture"}
         </button>
       </div>
+      </>}
 
+      {adminTab === 'trivia' && <>
       {/* ─── Trivia (Subsystem B): per-phase answer windows ─── */}
       <div
         className="lform"
@@ -1523,7 +1539,9 @@ export default function AdminPage() {
           {addingQ ? "Adding…" : "Add Question"}
         </button>
       </div>
+      </>}
 
+      {adminTab === 'brackets' && <>
       {/* ─── Bracket submission windows (both phases) ─── */}
       <div
         className="lform"
@@ -1969,7 +1987,9 @@ export default function AdminPage() {
           {addingBE ? "Adding…" : "Add Knockout Entry"}
         </button>
       </div>
+      </>}
 
+      {adminTab === 'admin' && <>
       {/* ─── Password reset ─── */}
       <div className="lform" style={{ marginBottom: "1.5rem" }}>
         <div className="lform-title" style={{ color: "var(--gold)" }}>
@@ -2036,6 +2056,7 @@ export default function AdminPage() {
           </button>
         </div>
       </div>
+      </>}
     </section>
   );
 }
