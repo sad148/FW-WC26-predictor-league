@@ -219,7 +219,9 @@ select option{background:#1e1e2e;color:var(--white);}
 /* ── ADMIN: fixture card inner grids ── */
 .admin-fix-times{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;}
 .admin-fix-fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;align-items:end;}
+.trivia-settle-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;}
 @media(max-width:640px){
   .admin-fix-times{grid-template-columns:1fr;}
   .admin-fix-fields{grid-template-columns:1fr;}
+  .trivia-settle-grid{grid-template-columns:1fr;}
 }
