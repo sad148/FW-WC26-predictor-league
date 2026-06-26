@@ -154,6 +154,12 @@ export default function AdminPage() {
   >([]);
   const [importing, setImporting] = useState(false);
 
+  // Password reset state
+  const [allUsers, setAllUsers] = useState<{ id: number; name: string }[]>([]);
+  const [resetUserId, setResetUserId] = useState<number | "">("");
+  const [resetPwd, setResetPwd] = useState("");
+  const [resetting, setResetting] = useState(false);
+
   const loadFixtures = useCallback(async () => {
     try {
       const r = await api.fixtures();
@@ -206,6 +212,15 @@ export default function AdminPage() {
     }
   }, [toast]);
 
+  const loadUsers = useCallback(async () => {
+    try {
+      const r = await api.adminUsers();
+      setAllUsers(r.users);
+    } catch (e) {
+      toast("Error", (e as Error).message);
+    }
+  }, [toast]);
+
   useEffect(() => {
     if (!isAdmin) return;
     loadLeagues();
@@ -213,7 +228,8 @@ export default function AdminPage() {
     loadQuestions();
     loadBrackets();
     loadGroups();
-  }, [isAdmin, loadLeagues, loadFixtures, loadQuestions, loadBrackets, loadGroups]);
+    loadUsers();
+  }, [isAdmin, loadLeagues, loadFixtures, loadQuestions, loadBrackets, loadGroups, loadUsers]);
 
   function draftFor(m: Match): ResultDraft {
     return (
@@ -639,6 +655,22 @@ export default function AdminPage() {
       toast("✓ Seeded", res.message);
     } catch (e) {
       toast("Error", (e as Error).message);
+    }
+  }
+
+  async function handleResetPassword() {
+    if (!resetUserId || !resetPwd) return toast("Missing fields", "Select a user and enter a new password.");
+    if (resetPwd.length < 4) return toast("Too short", "Password must be at least 4 characters.");
+    setResetting(true);
+    try {
+      await api.adminResetPassword({ userId: Number(resetUserId), newPassword: resetPwd });
+      toast("✓ Done", "Password updated.");
+      setResetUserId("");
+      setResetPwd("");
+    } catch (e) {
+      toast("Error", (e as Error).message);
+    } finally {
+      setResetting(false);
     }
   }
 
@@ -1935,6 +1967,45 @@ export default function AdminPage() {
           onClick={addBracketEntry}
         >
           {addingBE ? "Adding…" : "Add Knockout Entry"}
+        </button>
+      </div>
+
+      {/* ─── Password reset ─── */}
+      <div className="lform" style={{ marginBottom: "1.5rem" }}>
+        <div className="lform-title" style={{ color: "var(--gold)" }}>
+          RESET USER PASSWORD
+        </div>
+        <div className="fg">
+          <label className="flabel">User</label>
+          <select
+            className="finput"
+            value={resetUserId}
+            onChange={(e) => setResetUserId(e.target.value === "" ? "" : Number(e.target.value))}
+            style={{ background: "var(--card)", color: "var(--white)", cursor: "pointer" }}
+          >
+            <option value="">— select player —</option>
+            {allUsers.map((u) => (
+              <option key={u.id} value={u.id}>{u.name}</option>
+            ))}
+          </select>
+        </div>
+        <div className="fg">
+          <label className="flabel">New Password</label>
+          <input
+            className="finput"
+            type="text"
+            placeholder="Min 4 characters"
+            value={resetPwd}
+            onChange={(e) => setResetPwd(e.target.value)}
+          />
+        </div>
+        <button
+          className="btn-gold"
+          style={{ width: "100%" }}
+          disabled={resetting}
+          onClick={handleResetPassword}
+        >
+          {resetting ? "Updating…" : "Reset Password →"}
         </button>
       </div>
 

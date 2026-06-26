@@ -399,6 +399,13 @@ export const api = {
   // Admin
   adminLeagues: () =>
     request<{ leagues: (LeagueSummary & { createdAt: string; memberCount: number })[] }>('/api/admin/leagues'),
+  adminUsers: () =>
+    request<{ users: { id: number; name: string }[] }>('/api/admin/users'),
+  adminResetPassword: (b: { userId: number; newPassword: string }) =>
+    request<{ message: string }>('/api/admin/reset-password', {
+      method: 'POST',
+      body: JSON.stringify(b),
+    }),
   adminLogin: (b: { password: string }) =>
     request<{}>("/api/admin/login", {
       method: "POST",
