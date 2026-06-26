@@ -1286,7 +1286,7 @@ export default function AdminPage() {
             No questions yet. Add one below.
           </p>
         ) : (
-          <div style={{ display: "grid", gap: 8 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 8 }}>
             {questions.map((q) => {
               const d = qDraftFor(q);
               return (
