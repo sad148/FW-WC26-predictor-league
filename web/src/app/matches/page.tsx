@@ -16,6 +16,14 @@ const STATE_CLS: Record<MatchState, string> = {
   complete:    'st-done',
 };
 
+function maxWagerForMatch(m: Match): number {
+  if (m.phase !== 'knockout') return 8;
+  const r = (m.groupName || '').toUpperCase();
+  if (r === 'SF' || r === 'FINAL' || r === 'THIRD') return 30;
+  if (r === 'R16' || r === 'QF') return 16;
+  return 8;
+}
+
 const Q1 = ['Home Win', 'Draw', 'Away Win'] as const;
 const Q3 = ['0–1 Goals', '2–3 Goals', '4+ Goals'] as const;
 const Q4 = ['0–2 Cards', '3–5 Cards', '6+ Cards'] as const;
@@ -273,7 +281,7 @@ export default function MatchesPage() {
                           const raw = e.target.value.replace(/[^0-9]/g, '');
                           setWagerRaw(r => ({ ...r, [m.id]: raw }));
                           if (raw !== '') {
-                            const v = Math.min(8, Math.max(1, parseInt(raw)));
+                            const v = Math.min(maxWagerForMatch(m), Math.max(1, parseInt(raw)));
                             setDraft(m.id, { wager: v });
                           }
                         }}
@@ -283,7 +291,7 @@ export default function MatchesPage() {
                           setDraft(m.id, { wager: v });
                         }}
                       />
-                      <span className="wmax">coins / 8 max</span>
+                      <span className="wmax">coins / {maxWagerForMatch(m)} max</span>
                       {existing && !canBet
                         ? <span className="saved-badge">✓ Submitted</span>
                         : <button

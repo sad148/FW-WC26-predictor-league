@@ -6,6 +6,14 @@ import { requireActiveLeague } from '@/lib/session';
 import { HttpError } from '@/lib/errors';
 import { ok, fail, handleError } from '@/lib/responses';
 
+function getMaxWager(phase: string, groupName: string | null): number {
+  if (phase !== 'knockout') return 8;
+  const r = (groupName || '').toUpperCase();
+  if (r === 'SF' || r === 'FINAL' || r === 'THIRD') return 30;
+  if (r === 'R16' || r === 'QF') return 16;
+  return 8;
+}
+
 /** GET /api/bets — list current user's bets for the active league. */
 export async function GET() {
   try {
@@ -33,11 +41,13 @@ export async function POST(req: NextRequest) {
     const wager    = parseInt(String(body.wager), 10);
     const leagueId = session.activeLeagueId;
 
-    if (isNaN(matchId))                        return fail('matchId is required.');
-    if (isNaN(wager) || wager < 1 || wager > 8) return fail('Wager must be between 1 and 8.');
+    if (isNaN(matchId)) return fail('matchId is required.');
 
     const [match] = await db.select().from(fixtures).where(eq(fixtures.id, matchId));
     if (!match) return fail('Match not found.', 404);
+
+    const maxWager = getMaxWager(match.phase, match.groupName);
+    if (isNaN(wager) || wager < 1 || wager > maxWager) return fail(`Wager must be between 1 and ${maxWager}.`);
 
     const now = new Date();
     if (!match.startTime || !match.endTime) {
