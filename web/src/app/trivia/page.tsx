@@ -7,8 +7,8 @@ import { formatLocal, windowState, WINDOW_STATE_LABEL, type WindowState } from '
 import { useAuth, useToast } from '../providers';
 
 
-// Per-question badge: a settled question always shows "settled"; otherwise it inherits
-// its phase's window state (open/closed/scheduled), since open/close is now phase-level.
+type Tab = 'upcoming' | 'pending' | 'completed';
+
 const WINDOW_CLS: Record<WindowState, string> = {
   unset:     'st-up',
   scheduled: 'st-up',
@@ -24,6 +24,7 @@ export default function TriviaPage() {
   const [windows,   setWindows]   = useState<PhaseWindow[]>([]);
   const [drafts,    setDrafts]    = useState<Record<number, string>>({});
   const [savingId,  setSavingId]  = useState<number | null>(null);
+  const [tab,       setTab]       = useState<Tab>('pending');
 
   const loadQuestions = useCallback(async () => {
     try {
@@ -55,6 +56,25 @@ export default function TriviaPage() {
     questions.forEach(q => { (grouped[q.phase] ||= []).push(q); });
     return grouped;
   }, [questions]);
+
+  const phaseTabMap = useMemo<Record<number, Tab>>(() => {
+    const n = Date.now();
+    const map: Record<number, Tab> = {};
+    for (const win of windows) {
+      const state = windowState(win.startTime ?? null, win.endTime ?? null, n);
+      const qs = phases[win.phase] ?? [];
+      const allSettled = qs.length > 0 && qs.every(q => q.status === 'settled');
+      if (allSettled) map[win.phase] = 'completed';
+      else if (state === 'open' || state === 'closed') map[win.phase] = 'pending';
+      else map[win.phase] = 'upcoming';
+    }
+    return map;
+  }, [windows, phases]);
+
+  const visibleWindows = useMemo(
+    () => windows.filter(w => phaseTabMap[w.phase] === tab),
+    [windows, phaseTabMap, tab],
+  );
 
   // Rebind 'now' once per render — enough to flip a phase open→closed on reload.
   const now = Date.now();
@@ -95,7 +115,25 @@ export default function TriviaPage() {
         </div>
       )}
 
-      {windows.map(win => {
+      <div className="phase-tabs">
+        {(['upcoming', 'pending', 'completed'] as Tab[]).map(t => (
+          <button
+            key={t}
+            type="button"
+            className={`ptab${tab === t ? ' on' : ''}`}
+            onClick={() => setTab(t)}
+          >
+            {t === 'upcoming' ? 'Upcoming' : t === 'pending' ? '● Pending' : '✓ Completed'}
+          </button>
+        ))}
+      </div>
+
+      {visibleWindows.length === 0 ? (
+        <div className="empty-state" style={{ padding: '2rem' }}>
+          <div className="ei" style={{ fontSize: 28 }}>📭</div>
+          <p>No {tab} questions.</p>
+        </div>
+      ) : visibleWindows.map(win => {
         const phase = win.phase;
         const state = windowState(win?.startTime ?? null, win?.endTime ?? null, now);
         const phaseOpen = state === 'open';

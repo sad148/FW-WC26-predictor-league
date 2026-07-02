@@ -41,7 +41,7 @@ export default function MatchesPage() {
   const { toast }          = useToast();
   const [matches, setMatches] = useState<Match[]>([]);
   const [bets, setBets]       = useState<Bet[]>([]);
-  const [filter, setFilter]   = useState<Filter>('all');
+  const [filter, setFilter]   = useState<Filter>('open');
   const [drafts, setDrafts]     = useState<Record<number, Draft>>({});
   const [wagerRaw, setWagerRaw] = useState<Record<number, string>>({});
   const [submitting, setSub]    = useState<number | null>(null);
