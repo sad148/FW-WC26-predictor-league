@@ -3,6 +3,7 @@ import { Providers } from './providers';
 import { Header } from './components/Header';
 import { MobileNav } from './components/MobileNav';
 import { Analytics } from '@vercel/analytics/next';
+import { SpeedInsights } from '@vercel/speed-insights/next';
 
 export const metadata = {
   title: 'WC26 Predictor',
@@ -19,6 +20,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <MobileNav />
         </Providers>
         <Analytics />
+        <SpeedInsights />
       </body>
     </html>
   );
